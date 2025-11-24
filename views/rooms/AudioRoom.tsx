@@ -24,66 +24,83 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- CẤU HÌNH DANH SÁCH SERVER DỰ PHÒNG (FAILOVER LIST - UPDATED V3) ---
-// Đã sắp xếp lại thứ tự ưu tiên các server ổn định nhất hiện nay
-const PIPED_INSTANCES = [
-  "https://api.piped.spot.sjv.io",         // Server Mỹ (Thường rất nhanh)
-  "https://piped-api.garudalinux.org",     // Server Linux (Ổn định)
-  "https://pipedapi.adminforge.de",        // Server Đức (Mới & Khỏe)
-  "https://api.piped.privacy.com.de",      // Server Đức (Bảo mật)
-  "https://pipedapi.drgns.space",          // Server Châu Âu
-  "https://pipedapi.kavin.rocks",          // Server gốc (Hay quá tải, để dự phòng cuối)
+// --- CẤU HÌNH DANH SÁCH SERVER (HYBRID: PIPED + INVIDIOUS) ---
+// Kết hợp nhiều nguồn để đảm bảo tỉ lệ thành công cao nhất
+const SEARCH_PROVIDERS = [
+  { type: 'invidious', url: "https://inv.tux.pizza" },          // Invidious (Rất ổn định)
+  { type: 'invidious', url: "https://vid.puffyan.us" },         // Invidious (Mỹ)
+  { type: 'piped',     url: "https://api.piped.spot.sjv.io" },  // Piped (Nhanh)
+  { type: 'invidious', url: "https://invidious.projectsegfau.lt" }, // Invidious (Châu Âu)
+  { type: 'piped',     url: "https://pipedapi.kavin.rocks" }    // Piped (Dự phòng cuối)
 ];
 
-// --- HÀM TÌM KIẾM THÔNG MINH (UPDATED) ---
+// --- HÀM TÌM KIẾM THÔNG MINH (HYBRID ENGINE) ---
 const searchYoutubeVideos = async (query: string) => {
-  console.log("Starting search for:", query);
+  console.log("Starting Hybrid Search for:", query);
   
-  for (const instance of PIPED_INSTANCES) {
+  for (const provider of SEARCH_PROVIDERS) {
     try {
-      console.log(`Trying server: ${instance}`);
+      console.log(`Trying ${provider.type} at ${provider.url}...`);
       
-      // Thêm timeout để không bị treo nếu server phản hồi lâu
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 giây timeout
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
-      const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`, {
-        signal: controller.signal
-      });
-      
+      let apiUrl = "";
+      if (provider.type === 'piped') {
+        apiUrl = `${provider.url}/search?q=${encodeURIComponent(query)}&filter=videos`;
+      } else {
+        // Invidious API endpoint
+        apiUrl = `${provider.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+      }
+
+      const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn(`Server ${instance} returned ${response.status}`);
-        continue; 
+        console.warn(`${provider.url} returned ${response.status}`);
+        continue;
       }
 
       const data = await response.json();
-      
-      if (data.items && data.items.length > 0) {
-        // Lọc chỉ lấy video
-        const videos = data.items.filter((item: any) => item.type === 'stream');
-        
-        if (videos.length === 0) continue; // Có kết quả nhưng không phải video, thử server khác
+      let results: any[] = [];
 
-        console.log(`Success with ${instance}`);
-        return videos.slice(0, 10).map((item: any) => {
-          // Piped URL format: /watch?v=ID
-          const videoId = item.url.split('v=')[1];
-          return {
-            id: videoId,
-            title: item.title,
-            channelTitle: item.uploaderName,
-            thumbnail: item.thumbnail
-          };
-        });
+      // --- XỬ LÝ DỮ LIỆU TÙY THEO LOẠI API ---
+      if (provider.type === 'piped') {
+        if (data.items && data.items.length > 0) {
+           results = data.items
+             .filter((item: any) => item.type === 'stream')
+             .map((item: any) => ({
+                id: item.url.split('v=')[1],
+                title: item.title,
+                channelTitle: item.uploaderName,
+                thumbnail: item.thumbnail
+             }));
+        }
+      } else if (provider.type === 'invidious') {
+        // Invidious trả về mảng trực tiếp
+        if (Array.isArray(data) && data.length > 0) {
+           results = data.map((item: any) => ({
+              id: item.videoId,
+              title: item.title,
+              channelTitle: item.author,
+              // Lấy thumbnail chất lượng tốt nhất nếu có, hoặc default
+              thumbnail: item.videoThumbnails?.find((t:any) => t.quality === 'maxres')?.url || item.videoThumbnails?.[0]?.url
+           }));
+        }
       }
+
+      // Nếu tìm thấy kết quả, trả về ngay
+      if (results.length > 0) {
+        console.log(`Success with ${provider.url}`);
+        return results.slice(0, 10);
+      }
+
     } catch (error) {
-      console.warn(`Failed to connect to ${instance}`, error);
+      console.warn(`Failed to connect to ${provider.url}`, error);
     }
   }
   
-  console.error("All search servers failed.");
+  console.error("All search providers failed.");
   return [];
 };
 
@@ -212,7 +229,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // States cho tính năng tìm kiếm
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -248,7 +264,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
   const handleYoutubeSearch = async () => {
      if(!searchQuery.trim()) return;
      setIsSearchingYoutube(true);
-     setSearchResults([]); // Clear kết quả cũ để hiển thị loading rõ hơn
+     setSearchResults([]); 
      
      const results = await searchYoutubeVideos(searchQuery);
      setSearchResults(results);
@@ -277,23 +293,12 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                 {isSearchMode ? "Search YouTube" : "Edit Metadata"}
              </h3>
              <div className="flex items-center gap-2">
-                {/* SEARCH TOGGLE BUTTON */}
                 {!isSearchMode && (
-                   <button 
-                      onClick={() => setIsSearchMode(true)} 
-                      className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-                      title="Search on YouTube"
-                   >
+                   <button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors" title="Search on YouTube">
                       <Search size={18} />
                    </button>
                 )}
-                
-                {/* FAVORITE TOGGLE */}
-                <button 
-                  onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} 
-                  className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`}
-                  title="Toggle Favorite"
-                >
+                <button onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`} title="Toggle Favorite">
                   {formData.isFavorite ? '★' : '☆'}
                 </button>
                 <div className="w-[1px] h-6 bg-slate-800 mx-1"></div>
@@ -302,20 +307,11 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
           </div>
 
           <div className="p-6 space-y-4 overflow-y-auto scrollbar-hide relative min-h-[400px]">
-             {/* --- SEARCH INTERFACE --- */}
              {isSearchMode ? (
                 <div className="space-y-4 animate-fade-in">
                    <div className="flex gap-2">
                       <div className="relative flex-1">
-                         <input 
-                            autoFocus
-                            type="text" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleYoutubeSearch()}
-                            placeholder="Search song title..." 
-                            className="w-full bg-slate-800/80 border border-slate-600 rounded-lg p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none"
-                         />
+                         <input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleYoutubeSearch()} placeholder="Search song title..." className="w-full bg-slate-800/80 border border-slate-600 rounded-lg p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" />
                          <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
                       </div>
                       <button onClick={handleYoutubeSearch} disabled={isSearchingYoutube} className="bg-red-600 hover:bg-red-700 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center">
@@ -326,13 +322,10 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                    <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
                       {searchResults.length === 0 && !isSearchingYoutube && (
                          <div className="text-center text-slate-500 py-8 text-sm italic">
-                            {searchQuery && searchResults.length === 0 ? 
-                               "No results found. Try a different keyword." : 
-                               "Enter a keyword to start searching."}
+                            {searchQuery && searchResults.length === 0 ? "No results found. The servers might be busy, please try again." : "Enter a keyword to start searching."}
                          </div>
                       )}
                       
-                      {/* Loading Skeleton if no results but searching */}
                       {isSearchingYoutube && searchResults.length === 0 && (
                           <div className="space-y-3 opacity-50">
                               {[1,2,3].map(i => (
@@ -348,11 +341,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                       )}
 
                       {searchResults.map((video) => (
-                         <div 
-                            key={video.id} 
-                            onClick={() => handleSelectVideo(video)}
-                            className="flex gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer group transition-colors border border-transparent hover:border-cyan-900/50"
-                         >
+                         <div key={video.id} onClick={() => handleSelectVideo(video)} className="flex gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer group transition-colors border border-transparent hover:border-cyan-900/50">
                             <img src={video.thumbnail} alt="" className="w-24 h-16 object-cover rounded bg-slate-950" />
                             <div className="flex-1 overflow-hidden">
                                <h4 className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300">{video.title}</h4>
@@ -366,7 +355,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                    <button onClick={() => setIsSearchMode(false)} className="w-full py-2 text-xs text-slate-500 hover:text-white uppercase tracking-wider font-mono mt-4">Cancel Search</button>
                 </div>
              ) : (
-             /* --- NORMAL FORM INTERFACE --- */
              <>
                 <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-1 relative group aspect-square bg-slate-800 rounded overflow-hidden border border-slate-700 cursor-pointer h-full" onClick={() => fileInputRef.current?.click()}>
@@ -393,7 +381,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
              )}
           </div>
           
-          {/* Footer */}
           {!isSearchMode && (
               <div className="p-4 bg-slate-950 border-t border-cyan-900/30 flex gap-3 shrink-0">
                  <button onClick={() => onDelete(formData.id)} className="p-2 rounded bg-red-900/20 text-red-400 border border-red-900/50 hover:bg-red-900/40"><Trash2 size={18} /></button>
@@ -409,25 +396,20 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
 const AudioRoom: React.FC = () => {
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // --- Quản lý trạng thái "Deep Dive" ---
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
-  
   const PREVIEW_LIMIT = 10;
   
   const [viewingItem, setViewingItem] = useState<AlbumItem | null>(null);
   const [editingItem, setEditingItem] = useState<{item: AlbumItem, shelfId: number} | null>(null);
   const [editingShelfId, setEditingShelfId] = useState<number | null>(null);
   const [tempShelfTitle, setTempShelfTitle] = useState("");
-
-  // Visualizer
   const [bars, setBars] = useState<number[]>(new Array(30).fill(20));
+
   useEffect(() => {
     const interval = setInterval(() => setBars(prev => prev.map(() => Math.random() * 60 + 10)), 150);
     return () => clearInterval(interval);
   }, []);
 
-  // Firebase Sync
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = onSnapshot(collection(db, "audio-shelves"), 
@@ -442,7 +424,6 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- CRUD Functions ---
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -506,7 +487,6 @@ const AudioRoom: React.FC = () => {
      } catch (e) { console.error(e); }
   };
 
-  // Drag & Drop
   const [draggedItem, setDraggedItem] = useState<{ item: AlbumItem, sourceShelfId: number, sourceIndex: number } | null>(null);
 
   const handleDragStart = (e: React.DragEvent, item: AlbumItem, shelfId: number, index: number) => {
@@ -556,26 +536,21 @@ const AudioRoom: React.FC = () => {
      setDraggedItem(null);
   };
 
-  // --- RENDER ---
   const focusedShelf = focusedShelfId ? shelves.find(s => s.id === focusedShelfId) : null;
 
   return (
     <div className="relative h-full w-full flex flex-col items-center bg-slate-950 overflow-hidden">
       
-      {/* Mascot (Chỉ hiện ở màn hình chính) */}
       {!(viewingItem?.isFavorite) && !focusedShelfId && (
         <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
       )}
 
-      {/* Visualizer */}
       <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-2 h-64 opacity-10 pointer-events-none -z-0 gap-1">
          {bars.map((h, i) => <div key={i} className="w-full bg-cyan-500/20 blur-xl transition-all duration-300" style={{ height: `${h}%` }}></div>)}
       </div>
 
-      {/* --- GIAO DIỆN FULL SCREEN CHO FOCUSED SHELF --- */}
       {focusedShelf ? (
         <div className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-xl flex flex-col animate-zoom-in overflow-hidden">
-            {/* Focused Header */}
             <div className="flex items-center justify-between p-6 border-b border-cyan-900/50 bg-slate-900/50">
                <div className="flex items-center gap-4">
                   <button onClick={() => setFocusedShelfId(null)} className="p-2 rounded-full hover:bg-slate-800 text-cyan-500 transition-colors flex items-center gap-2 group">
@@ -588,7 +563,6 @@ const AudioRoom: React.FC = () => {
                <div className="text-slate-600 text-xs font-mono uppercase tracking-widest hidden md:block">Deep Dive Mode</div>
             </div>
 
-            {/* Focused Content Grid */}
             <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
                <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-16 perspective-container max-w-7xl mx-auto">
                   {focusedShelf.items.map((item, index) => (
@@ -598,14 +572,11 @@ const AudioRoom: React.FC = () => {
                   ))}
                   <AddNewAlbum onClick={() => handleAddNewItem(focusedShelf.id)} />
                </div>
-               {/* Pad bottom */}
                <div className="h-32"></div> 
             </div>
         </div>
       ) : (
-        /* --- GIAO DIỆN CHÍNH (DANH SÁCH KỆ) --- */
         <>
-          {/* Main Header */}
           <div className="relative z-10 mt-12 mb-8 text-center animate-appear-from-void">
              <div className="inline-flex items-center justify-center p-4 rounded-full bg-cyan-950/30 border border-cyan-500/30 mb-2 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
                 <Headphones size={32} className="text-cyan-400" />
@@ -614,7 +585,6 @@ const AudioRoom: React.FC = () => {
              <p className="text-cyan-400/50 text-xs tracking-widest mt-2">Quanh's Sonic Dimension</p>
           </div>
 
-          {/* Shelves List */}
           <div className="w-full h-full overflow-y-auto overflow-x-hidden pb-32 px-4 scrollbar-hide perspective-container z-10">
              <div className="max-w-6xl mx-auto flex flex-col gap-24 pt-8 pb-24">
                 {isLoading ? (
@@ -633,7 +603,6 @@ const AudioRoom: React.FC = () => {
                         return (
                         <div key={shelf.id} className="relative group/shelf" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, shelf.id)}>
                            
-                           {/* Shelf Header */}
                            <div className="flex items-center justify-between mb-6 border-b border-cyan-900/50 pb-2 w-full max-w-md">
                               <div className="flex items-center gap-4 flex-1">
                                   <Mic2 size={16} className="text-cyan-700" />
@@ -652,21 +621,15 @@ const AudioRoom: React.FC = () => {
                                   )}
                               </div>
                               
-                              {/* View All Button */}
                               {totalItems > PREVIEW_LIMIT && (
-                                  <button 
-                                    onClick={() => setFocusedShelfId(shelf.id)}
-                                    className="flex items-center gap-1 text-xs font-mono uppercase text-cyan-600 hover:text-cyan-400 transition-colors bg-cyan-950/30 px-3 py-1 rounded-full border border-cyan-900 hover:border-cyan-500"
-                                  >
+                                  <button onClick={() => setFocusedShelfId(shelf.id)} className="flex items-center gap-1 text-xs font-mono uppercase text-cyan-600 hover:text-cyan-400 transition-colors bg-cyan-950/30 px-3 py-1 rounded-full border border-cyan-900 hover:border-cyan-500">
                                     Xem tất cả <ChevronRight size={14} />
                                   </button>
                               )}
                            </div>
 
-                           {/* Shelf Platform */}
                            <div className="absolute top-32 -left-[5%] -right-[5%] h-4 bg-cyan-900/20 border-t border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)] transform -rotate-x-6 translate-z-[-20px]"></div>
                            
-                           {/* Items Row */}
                            <div className="flex flex-wrap items-end gap-x-6 gap-y-16 pl-4 relative z-10">
                               {visibleItems.map((item, index) => (
                                  <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item, shelf.id, index)} onDragEnd={handleDragEnd} onDrop={(e) => { e.stopPropagation(); handleDrop(e, shelf.id, index); }}>
