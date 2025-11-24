@@ -12,7 +12,7 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- Utilities (Giữ nguyên) ---
+// --- Utilities ---
 const getYouTubeId = (url: string) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
@@ -23,8 +23,7 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- COMPONENTS (JewelCase3D, AddNewAlbum...) GIỮ NGUYÊN ---
-// (Tôi giữ nguyên phần này để code gọn, logic hiển thị đĩa 3D không đổi)
+// --- COMPONENTS ---
 
 const JewelCase3D: React.FC<{ 
   item: AlbumItem; 
@@ -52,18 +51,21 @@ const JewelCase3D: React.FC<{
     <div className="flex flex-col items-center gap-4 group relative z-10 hover:z-20">
         <div onClick={handleInteraction} className="relative w-32 h-32 cursor-pointer perspective-[800px] transition-all duration-500 touch-manipulation">
           <div className="w-full h-full preserve-3d transition-transform duration-500 group-hover:-translate-y-4 group-hover:rotate-x-12 group-hover:rotate-y-12">
-            {/* Disc & Case rendering (Giữ nguyên như cũ) */}
+            {/* Disc */}
             <div className="absolute top-1 left-1 w-28 h-28 rounded-full flex items-center justify-center transition-transform duration-700 group-hover:translate-x-16 group-hover:rotate-[360deg]"
                 style={{ background: `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.8) 20%, transparent 30%, transparent 100%), radial-gradient(circle, #d1d5db 30%, #9ca3af 100%)`, boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}>
               <div className="absolute inset-0 rounded-full opacity-40 bg-gradient-to-tr from-transparent via-pink-500/20 to-cyan-500/20 mix-blend-color-dodge"></div>
               <div className="w-8 h-8 bg-slate-900 rounded-full border-2 border-white/20"></div>
-              {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 drop-shadow-md z-10">★</div>}
+              {/* Star on Disc */}
+              {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 drop-shadow-md z-10 text-lg">★</div>}
             </div>
+            {/* Case Back */}
             <div className="absolute inset-0 bg-slate-900 rounded border border-slate-700 shadow-xl" style={{ transform: 'translateZ(-2px)' }}>
                 <div className="absolute top-0 bottom-0 -left-2 w-2 bg-slate-800 origin-right transform rotateY(-90deg) flex items-center justify-center overflow-hidden border-l border-slate-600">
                     <span className="text-[6px] text-white whitespace-nowrap rotate-90 tracking-widest uppercase font-mono opacity-70">{item.artist} - {item.title}</span>
                 </div>
             </div>
+            {/* Case Front */}
             <div className="absolute inset-0 bg-slate-900 rounded overflow-hidden border-l border-slate-600 shadow-lg transform origin-left transition-transform duration-500 group-hover:rotate-y-[-20deg]">
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent z-20 pointer-events-none"></div>
                 {item.coverUrl ? (
@@ -97,9 +99,9 @@ const AddNewAlbum = ({ onClick }: { onClick: () => void }) => {
   );
 };
 
-// --- MODALS (DetailModal & EditModal giữ nguyên logic) ---
+// --- MODALS ---
+
 const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => {
-    // (Giữ nguyên code DetailModal từ phiên bản trước)
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
@@ -123,9 +125,12 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2>
                         <p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p>
                     </div>
+                    {/* Metadata Row */}
                     <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
                         <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year}</span>
                         {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
+                        {/* RESTORED FAVORITE BADGE */}
+                        {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
                     </div>
                     <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40">
                          <p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p>
@@ -142,7 +147,6 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
 }
 
 const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
-  // (Giữ nguyên code EditModal từ phiên bản trước)
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -178,13 +182,22 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
        <div className="relative bg-slate-900 border border-cyan-900 w-full max-w-lg rounded-xl shadow-[0_0_50px_rgba(8,145,178,0.2)] overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
-          {/* ... (Nội dung form giữ nguyên) ... */}
           <div className="p-5 bg-slate-950 border-b border-cyan-900/50 flex justify-between items-center shrink-0">
              <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2"><Edit3 size={18} /> Edit Metadata</h3>
-             <button onClick={onClose} className="text-slate-500 hover:text-cyan-400"><X size={20}/></button>
+             <div className="flex items-center gap-2">
+                {/* RESTORED FAVORITE BUTTON */}
+                <button 
+                  onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} 
+                  className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`}
+                  title="Toggle Favorite"
+                >
+                  {formData.isFavorite ? '★' : '☆'}
+                </button>
+                <div className="w-[1px] h-6 bg-slate-800 mx-1"></div>
+                <button onClick={onClose} className="text-slate-500 hover:text-cyan-400"><X size={20}/></button>
+             </div>
           </div>
           <div className="p-6 space-y-4 overflow-y-auto scrollbar-hide">
-             {/* Fields */}
              <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-1 relative group aspect-square bg-slate-800 rounded overflow-hidden border border-slate-700 cursor-pointer h-full" onClick={() => fileInputRef.current?.click()}>
                    {formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[8px]">Upload</span></div>}
@@ -221,7 +234,7 @@ const AudioRoom: React.FC = () => {
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- THAY ĐỔI LỚN: Quản lý trạng thái "Deep Dive" ---
+  // --- Quản lý trạng thái "Deep Dive" ---
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
   
   const PREVIEW_LIMIT = 10;
@@ -253,7 +266,7 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- CRUD Functions (Giữ nguyên) ---
+  // --- CRUD Functions ---
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -409,7 +422,7 @@ const AudioRoom: React.FC = () => {
                   ))}
                   <AddNewAlbum onClick={() => handleAddNewItem(focusedShelf.id)} />
                </div>
-               {/* Pad bottom để không bị che bởi browser chrome */}
+               {/* Pad bottom */}
                <div className="h-32"></div> 
             </div>
         </div>
@@ -438,14 +451,13 @@ const AudioRoom: React.FC = () => {
 
                      {shelves.map((shelf) => {
                         const totalItems = shelf.items.length;
-                        // Ở màn hình chính, luôn chỉ hiện tối đa PREVIEW_LIMIT (ví dụ 10)
                         const visibleItems = shelf.items.slice(0, PREVIEW_LIMIT);
                         const remainingCount = totalItems - PREVIEW_LIMIT;
 
                         return (
                         <div key={shelf.id} className="relative group/shelf" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, shelf.id)}>
                            
-                           {/* Shelf Header (Updated: Nút Xem thêm nằm ở đây) */}
+                           {/* Shelf Header */}
                            <div className="flex items-center justify-between mb-6 border-b border-cyan-900/50 pb-2 w-full max-w-md">
                               <div className="flex items-center gap-4 flex-1">
                                   <Mic2 size={16} className="text-cyan-700" />
@@ -464,7 +476,7 @@ const AudioRoom: React.FC = () => {
                                   )}
                               </div>
                               
-                              {/* Nút Xem Thêm / Mở rộng */}
+                              {/* View All Button */}
                               {totalItems > PREVIEW_LIMIT && (
                                   <button 
                                     onClick={() => setFocusedShelfId(shelf.id)}
@@ -475,20 +487,18 @@ const AudioRoom: React.FC = () => {
                               )}
                            </div>
 
-                           {/* 3D Shelf Platform */}
+                           {/* Shelf Platform */}
                            <div className="absolute top-32 -left-[5%] -right-[5%] h-4 bg-cyan-900/20 border-t border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)] transform -rotate-x-6 translate-z-[-20px]"></div>
                            
-                           {/* Items Row (Preview) */}
+                           {/* Items Row */}
                            <div className="flex flex-wrap items-end gap-x-6 gap-y-16 pl-4 relative z-10">
                               {visibleItems.map((item, index) => (
                                  <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item, shelf.id, index)} onDragEnd={handleDragEnd} onDrop={(e) => { e.stopPropagation(); handleDrop(e, shelf.id, index); }}>
                                     <JewelCase3D item={item} onClick={() => setViewingItem(item)} onEdit={() => setEditingItem({ item, shelfId: shelf.id })} />
                                  </div>
                               ))}
-                              {/* Nút Add New luôn hiện ở cuối preview để dễ thao tác nhanh */}
                               <AddNewAlbum onClick={() => handleAddNewItem(shelf.id)} />
                               
-                              {/* Visual Indicator for hidden items */}
                               {remainingCount > 0 && (
                                   <div onClick={() => setFocusedShelfId(shelf.id)} className="mb-12 w-32 h-32 flex flex-col items-center justify-center border border-dashed border-slate-700/50 rounded bg-slate-900/20 hover:bg-cyan-900/10 hover:border-cyan-500/30 transition-all cursor-pointer group">
                                       <Grid className="text-slate-600 group-hover:text-cyan-500 transition-colors" />
