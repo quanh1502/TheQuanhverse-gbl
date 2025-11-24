@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mind Palace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Space Grotesk', sans-serif;
+        background-color: #020617; /* Slate 950 */
+        color: #e2e8f0;
+        overflow: hidden; /* Prevent scrolling to maintain the 3D viewport illusion */
+        margin: 0;
+        padding: 0;
+      }
+      .serif {
+        font-family: 'Playfair Display', serif;
+      }
+      
+      /* 3D Space Utilities */
+      .perspective-container {
+        perspective: 1200px; /* Depth of the scene */
+      }
+      .preserve-3d {
+        transform-style: preserve-3d;
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+      }
+
+      /* Floating Animation */
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-20px); }
+        100% { transform: translateY(0px); }
+      }
+      
+      /* Complex Floating for 3D elements (varied timing handled in JS/Inline) */
+      @keyframes float-3d {
+        0%, 100% { transform: translate3d(0, 0, 0); }
+        33% { transform: translate3d(0, -15px, 10px); }
+        66% { transform: translate3d(0, 10px, -5px); }
+      }
+
+      /* Zoom In Animation for entering rooms */
+      @keyframes zoom-in-fade {
+        0% { opacity: 0; transform: scale(0.8) translateZ(-100px); }
+        100% { opacity: 1; transform: scale(1) translateZ(0); }
+      }
+      .animate-zoom-in {
+        animation: zoom-in-fade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      /* Fly Through: Used when entering a room from Void */
+      @keyframes fly-through {
+        0% { transform: scale(1) translateZ(0); opacity: 1; }
+        100% { transform: scale(5) translateZ(500px); opacity: 0; }
+      }
+      .animate-fly-through {
+        animation: fly-through 0.8s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+      }
+
+      /* Fade Away: Used when leaving a room to Void */
+      @keyframes fade-away {
+        0% { opacity: 1; transform: scale(1); filter: blur(0px); }
+        100% { opacity: 0; transform: scale(0.9); filter: blur(10px); }
+      }
+      .animate-fade-away {
+        animation: fade-away 0.6s ease-in-out forwards;
+      }
+      
+      /* Appear from Void: Used when returning to Void */
+      @keyframes appear-from-void {
+         0% { opacity: 0; transform: scale(2); filter: blur(10px); }
+         100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+      }
+      .animate-appear-from-void {
+         animation: appear-from-void 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
