@@ -24,34 +24,51 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- CẤU HÌNH DANH SÁCH SERVER DỰ PHÒNG (FAILOVER LIST) ---
-// Nếu server đầu lỗi, nó sẽ tự nhảy sang server tiếp theo
+// --- CẤU HÌNH DANH SÁCH SERVER DỰ PHÒNG (FAILOVER LIST - UPDATED V3) ---
+// Đã sắp xếp lại thứ tự ưu tiên các server ổn định nhất hiện nay
 const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://api.piped.spot.sjv.io",
-  "https://piped-api.garudalinux.org",
-  "https://api.piped.privacy.com.de",
-  "https://pa.il.ax",
-  "https://pipedapi.aeong.one"
+  "https://api.piped.spot.sjv.io",         // Server Mỹ (Thường rất nhanh)
+  "https://piped-api.garudalinux.org",     // Server Linux (Ổn định)
+  "https://pipedapi.adminforge.de",        // Server Đức (Mới & Khỏe)
+  "https://api.piped.privacy.com.de",      // Server Đức (Bảo mật)
+  "https://pipedapi.drgns.space",          // Server Châu Âu
+  "https://pipedapi.kavin.rocks",          // Server gốc (Hay quá tải, để dự phòng cuối)
 ];
 
-// --- HÀM TÌM KIẾM THÔNG MINH (TỰ ĐỘNG ĐỔI SERVER) ---
+// --- HÀM TÌM KIẾM THÔNG MINH (UPDATED) ---
 const searchYoutubeVideos = async (query: string) => {
+  console.log("Starting search for:", query);
+  
   for (const instance of PIPED_INSTANCES) {
     try {
-      // Gọi API tìm kiếm
-      const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`);
+      console.log(`Trying server: ${instance}`);
       
-      if (!response.ok) continue; // Nếu lỗi mạng, thử server kế tiếp
+      // Thêm timeout để không bị treo nếu server phản hồi lâu
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 giây timeout
+
+      const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`Server ${instance} returned ${response.status}`);
+        continue; 
+      }
 
       const data = await response.json();
       
       if (data.items && data.items.length > 0) {
-        // Lọc chỉ lấy video (loại bỏ playlist, channel)
+        // Lọc chỉ lấy video
         const videos = data.items.filter((item: any) => item.type === 'stream');
         
-        // Map dữ liệu về chuẩn của App
+        if (videos.length === 0) continue; // Có kết quả nhưng không phải video, thử server khác
+
+        console.log(`Success with ${instance}`);
         return videos.slice(0, 10).map((item: any) => {
+          // Piped URL format: /watch?v=ID
           const videoId = item.url.split('v=')[1];
           return {
             id: videoId,
@@ -62,11 +79,11 @@ const searchYoutubeVideos = async (query: string) => {
         });
       }
     } catch (error) {
-      console.warn(`Failed to fetch from ${instance}, trying next...`);
+      console.warn(`Failed to connect to ${instance}`, error);
     }
   }
   
-  console.error("All Piped instances failed.");
+  console.error("All search servers failed.");
   return [];
 };
 
@@ -231,6 +248,8 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
   const handleYoutubeSearch = async () => {
      if(!searchQuery.trim()) return;
      setIsSearchingYoutube(true);
+     setSearchResults([]); // Clear kết quả cũ để hiển thị loading rõ hơn
+     
      const results = await searchYoutubeVideos(searchQuery);
      setSearchResults(results);
      setIsSearchingYoutube(false);
@@ -299,7 +318,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                          />
                          <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
                       </div>
-                      <button onClick={handleYoutubeSearch} disabled={isSearchingYoutube} className="bg-red-600 hover:bg-red-700 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
+                      <button onClick={handleYoutubeSearch} disabled={isSearchingYoutube} className="bg-red-600 hover:bg-red-700 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center">
                          {isSearchingYoutube ? <Loader2 size={16} className="animate-spin" /> : "Search"}
                       </button>
                    </div>
@@ -307,9 +326,27 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                    <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
                       {searchResults.length === 0 && !isSearchingYoutube && (
                          <div className="text-center text-slate-500 py-8 text-sm italic">
-                            {searchQuery ? "No results found." : "Enter a keyword to start searching."}
+                            {searchQuery && searchResults.length === 0 ? 
+                               "No results found. Try a different keyword." : 
+                               "Enter a keyword to start searching."}
                          </div>
                       )}
+                      
+                      {/* Loading Skeleton if no results but searching */}
+                      {isSearchingYoutube && searchResults.length === 0 && (
+                          <div className="space-y-3 opacity-50">
+                              {[1,2,3].map(i => (
+                                  <div key={i} className="flex gap-3 p-2 rounded-lg border border-slate-800">
+                                      <div className="w-24 h-16 bg-slate-800 rounded animate-pulse"></div>
+                                      <div className="flex-1 space-y-2 py-1">
+                                          <div className="h-3 bg-slate-800 rounded w-3/4 animate-pulse"></div>
+                                          <div className="h-2 bg-slate-800 rounded w-1/2 animate-pulse"></div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+
                       {searchResults.map((video) => (
                          <div 
                             key={video.id} 
