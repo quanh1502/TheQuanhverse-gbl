@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Music, Plus, X, Save, Trash2, Edit3, Headphones, Mic2, Upload, 
   Link as LinkIcon, Play, Calendar, Wand2, Loader2,
-  ChevronRight, ArrowLeft, Grid
+  ChevronRight, ArrowLeft, Grid, Search, Youtube
 } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
@@ -11,6 +11,10 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 // --- IMPORT FIREBASE ---
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+
+// --- CONFIGURATION ---
+// QUAN TRỌNG: Bạn cần điền API Key của Google/YouTube vào đây để chức năng tìm kiếm hoạt động
+const YOUTUBE_API_KEY = ""; // Ví dụ: "AIzaSyD..."
 
 // --- Utilities ---
 const getYouTubeId = (url: string) => {
@@ -21,6 +25,30 @@ const getYouTubeId = (url: string) => {
 
 const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+};
+
+// Hàm tìm kiếm Youtube
+const searchYoutubeVideos = async (query: string) => {
+  if (!YOUTUBE_API_KEY) {
+    alert("Vui lòng cấu hình YOUTUBE_API_KEY trong code để sử dụng tính năng tìm kiếm!");
+    return [];
+  }
+  try {
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`);
+    const data = await response.json();
+    if (data.items) {
+      return data.items.map((item: any) => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails.high.url
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Youtube Search Error:", error);
+    return [];
+  }
 };
 
 // --- COMPONENTS ---
@@ -56,7 +84,6 @@ const JewelCase3D: React.FC<{
                 style={{ background: `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.8) 20%, transparent 30%, transparent 100%), radial-gradient(circle, #d1d5db 30%, #9ca3af 100%)`, boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}>
               <div className="absolute inset-0 rounded-full opacity-40 bg-gradient-to-tr from-transparent via-pink-500/20 to-cyan-500/20 mix-blend-color-dodge"></div>
               <div className="w-8 h-8 bg-slate-900 rounded-full border-2 border-white/20"></div>
-              {/* Star on Disc */}
               {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 drop-shadow-md z-10 text-lg">★</div>}
             </div>
             {/* Case Back */}
@@ -125,11 +152,9 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2>
                         <p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p>
                     </div>
-                    {/* Metadata Row */}
                     <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
                         <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year}</span>
                         {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
-                        {/* RESTORED FAVORITE BADGE */}
                         {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
                     </div>
                     <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40">
@@ -146,10 +171,17 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
     )
 }
 
+// --- UPDATED EDIT MODAL WITH YOUTUBE SEARCH ---
 const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // States cho tính năng tìm kiếm
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearchingYoutube, setIsSearchingYoutube] = useState(false);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -178,14 +210,52 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
     } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
+  const handleYoutubeSearch = async () => {
+     if(!searchQuery.trim()) return;
+     setIsSearchingYoutube(true);
+     const results = await searchYoutubeVideos(searchQuery);
+     setSearchResults(results);
+     setIsSearchingYoutube(false);
+  };
+
+  const handleSelectVideo = (video: any) => {
+     // Decode HTML entities cơ bản trong title
+     const parser = new DOMParser();
+     const decodedTitle = parser.parseFromString(video.title, 'text/html').body.textContent || video.title;
+
+     setFormData(prev => ({
+        ...prev,
+        title: decodedTitle,
+        artist: video.channelTitle,
+        coverUrl: video.thumbnail,
+        trackUrl: `https://www.youtube.com/watch?v=${video.id}`
+     }));
+     setIsSearchMode(false); // Đóng chế độ tìm kiếm
+  };
+
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
        <div className="relative bg-slate-900 border border-cyan-900 w-full max-w-lg rounded-xl shadow-[0_0_50px_rgba(8,145,178,0.2)] overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
+          
           <div className="p-5 bg-slate-950 border-b border-cyan-900/50 flex justify-between items-center shrink-0">
-             <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2"><Edit3 size={18} /> Edit Metadata</h3>
+             <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                {isSearchMode ? <Youtube size={18} /> : <Edit3 size={18} />} 
+                {isSearchMode ? "Search YouTube" : "Edit Metadata"}
+             </h3>
              <div className="flex items-center gap-2">
-                {/* RESTORED FAVORITE BUTTON */}
+                {/* SEARCH TOGGLE BUTTON */}
+                {!isSearchMode && (
+                   <button 
+                      onClick={() => setIsSearchMode(true)} 
+                      className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                      title="Search on YouTube"
+                   >
+                      <Search size={18} />
+                   </button>
+                )}
+                
+                {/* FAVORITE TOGGLE */}
                 <button 
                   onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} 
                   className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`}
@@ -197,33 +267,88 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                 <button onClick={onClose} className="text-slate-500 hover:text-cyan-400"><X size={20}/></button>
              </div>
           </div>
-          <div className="p-6 space-y-4 overflow-y-auto scrollbar-hide">
-             <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1 relative group aspect-square bg-slate-800 rounded overflow-hidden border border-slate-700 cursor-pointer h-full" onClick={() => fileInputRef.current?.click()}>
-                   {formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[8px]">Upload</span></div>}
-                   <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+
+          <div className="p-6 space-y-4 overflow-y-auto scrollbar-hide relative min-h-[400px]">
+             {/* --- SEARCH INTERFACE --- */}
+             {isSearchMode ? (
+                <div className="space-y-4 animate-fade-in">
+                   <div className="flex gap-2">
+                      <div className="relative flex-1">
+                         <input 
+                            autoFocus
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleYoutubeSearch()}
+                            placeholder="Search song title..." 
+                            className="w-full bg-slate-800/80 border border-slate-600 rounded-lg p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none"
+                         />
+                         <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
+                      </div>
+                      <button onClick={handleYoutubeSearch} disabled={isSearchingYoutube} className="bg-red-600 hover:bg-red-700 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
+                         {isSearchingYoutube ? <Loader2 size={16} className="animate-spin" /> : "Search"}
+                      </button>
+                   </div>
+
+                   <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
+                      {searchResults.length === 0 && !isSearchingYoutube && (
+                         <div className="text-center text-slate-500 py-8 text-sm italic">
+                            {searchQuery ? "No results found." : "Enter a keyword to start searching."}
+                         </div>
+                      )}
+                      {searchResults.map((video) => (
+                         <div 
+                            key={video.id} 
+                            onClick={() => handleSelectVideo(video)}
+                            className="flex gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer group transition-colors border border-transparent hover:border-cyan-900/50"
+                         >
+                            <img src={video.thumbnail} alt="" className="w-24 h-16 object-cover rounded bg-slate-950" />
+                            <div className="flex-1 overflow-hidden">
+                               <h4 className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300">{video.title}</h4>
+                               <p className="text-xs text-slate-500 mt-1">{video.channelTitle}</p>
+                            </div>
+                            <button className="text-slate-600 group-hover:text-cyan-500 self-center"><Plus size={18}/></button>
+                         </div>
+                      ))}
+                   </div>
+                   
+                   <button onClick={() => setIsSearchMode(false)} className="w-full py-2 text-xs text-slate-500 hover:text-white uppercase tracking-wider font-mono mt-4">Cancel Search</button>
                 </div>
-                <div className="col-span-2 space-y-3">
-                   <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Title</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-cyan-100 focus:border-cyan-500 outline-none" /></div>
-                   <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Artist</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-cyan-100 focus:border-cyan-500 outline-none" /></div>
+             ) : (
+             /* --- NORMAL FORM INTERFACE --- */
+             <>
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-1 relative group aspect-square bg-slate-800 rounded overflow-hidden border border-slate-700 cursor-pointer h-full" onClick={() => fileInputRef.current?.click()}>
+                       {formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[8px]">Upload</span></div>}
+                       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                    </div>
+                    <div className="col-span-2 space-y-3">
+                       <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Title</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-cyan-100 focus:border-cyan-500 outline-none" /></div>
+                       <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Artist</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-cyan-100 focus:border-cyan-500 outline-none" /></div>
+                    </div>
                 </div>
-             </div>
-             <div>
-                <label className="text-[10px] text-cyan-600 uppercase font-mono font-bold flex items-center justify-between mb-1">
-                   <div className="flex items-center gap-1"><LinkIcon size={10} /> Link</div>
-                </label>
-                <div className="relative">
-                   <input type="text" value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-xs text-blue-300 focus:border-cyan-500 outline-none pr-10" />
-                   <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1 bg-cyan-900/50 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50">{isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}</button>
+                <div>
+                    <label className="text-[10px] text-cyan-600 uppercase font-mono font-bold flex items-center justify-between mb-1">
+                       <div className="flex items-center gap-1"><LinkIcon size={10} /> Link</div>
+                    </label>
+                    <div className="relative">
+                       <input type="text" value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-xs text-blue-300 focus:border-cyan-500 outline-none pr-10" />
+                       <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1 bg-cyan-900/50 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50">{isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}</button>
+                    </div>
                 </div>
-             </div>
-             <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Notes</label><textarea value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-slate-300 focus:border-cyan-500 outline-none h-20 resize-none" /></div>
-             <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Year</label><input type="text" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-xs text-slate-300 w-24" /></div>
+                <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Notes</label><textarea value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-sm text-slate-300 focus:border-cyan-500 outline-none h-20 resize-none" /></div>
+                <div><label className="text-[10px] text-cyan-600 uppercase font-mono font-bold">Year</label><input type="text" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-xs text-slate-300 w-24" /></div>
+             </>
+             )}
           </div>
-          <div className="p-4 bg-slate-950 border-t border-cyan-900/30 flex gap-3 shrink-0">
-             <button onClick={() => onDelete(formData.id)} className="p-2 rounded bg-red-900/20 text-red-400 border border-red-900/50 hover:bg-red-900/40"><Trash2 size={18} /></button>
-             <button onClick={() => onSave(formData)} className="flex-1 flex items-center justify-center gap-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded font-bold py-2"><Save size={16} /> Update Disc</button>
-          </div>
+          
+          {/* Footer chỉ hiện khi không ở chế độ tìm kiếm để tránh rối */}
+          {!isSearchMode && (
+              <div className="p-4 bg-slate-950 border-t border-cyan-900/30 flex gap-3 shrink-0">
+                 <button onClick={() => onDelete(formData.id)} className="p-2 rounded bg-red-900/20 text-red-400 border border-red-900/50 hover:bg-red-900/40"><Trash2 size={18} /></button>
+                 <button onClick={() => onSave(formData)} className="flex-1 flex items-center justify-center gap-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded font-bold py-2"><Save size={16} /> Update Disc</button>
+              </div>
+          )}
        </div>
     </div>
   );
