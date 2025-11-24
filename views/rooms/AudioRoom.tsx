@@ -12,10 +12,6 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- CONFIGURATION ---
-// QUAN TRỌNG: Bạn cần điền API Key của Google/YouTube vào đây để chức năng tìm kiếm hoạt động
-const YOUTUBE_API_KEY = ""; // Ví dụ: "AIzaSyD..."
-
 // --- Utilities ---
 const getYouTubeId = (url: string) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -27,26 +23,39 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// Hàm tìm kiếm Youtube
+// --- HÀM TÌM KIẾM MỚI (DÙNG PIPED API - KHÔNG CẦN KEY) ---
 const searchYoutubeVideos = async (query: string) => {
-  if (!YOUTUBE_API_KEY) {
-    alert("Vui lòng cấu hình YOUTUBE_API_KEY trong code để sử dụng tính năng tìm kiếm!");
-    return [];
-  }
   try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`);
+    // Sử dụng Piped API (Public Instance) thay vì Google API
+    // Link này là open source, miễn phí, không cần key
+    const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
+    
+    if (!response.ok) {
+       throw new Error("Network response was not ok");
+    }
+
     const data = await response.json();
+    
+    // Piped trả về items, ta cần map lại cho đúng cấu trúc app cần
     if (data.items) {
-      return data.items.map((item: any) => ({
-        id: item.id.videoId,
-        title: item.snippet.title,
-        channelTitle: item.snippet.channelTitle,
-        thumbnail: item.snippet.thumbnails.high.url
-      }));
+      // Lọc bớt chỉ lấy video, bỏ playlist/channel
+      const videos = data.items.filter((item: any) => item.type === 'stream');
+      
+      return videos.slice(0, 10).map((item: any) => {
+        // Piped trả về url dạng "/watch?v=ID", ta cần cắt lấy ID
+        const videoId = item.url.split('v=')[1];
+        return {
+          id: videoId,
+          title: item.title,
+          channelTitle: item.uploaderName, // Piped gọi là uploaderName
+          thumbnail: item.thumbnail
+        };
+      });
     }
     return [];
   } catch (error) {
-    console.error("Youtube Search Error:", error);
+    console.error("Search Error (Piped):", error);
+    // Fallback: Nếu server kavin.rocks bị lỗi, trả về mảng rỗng hoặc thử server khác
     return [];
   }
 };
@@ -171,7 +180,6 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
     )
 }
 
-// --- UPDATED EDIT MODAL WITH YOUTUBE SEARCH ---
 const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -219,13 +227,9 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
   };
 
   const handleSelectVideo = (video: any) => {
-     // Decode HTML entities cơ bản trong title
-     const parser = new DOMParser();
-     const decodedTitle = parser.parseFromString(video.title, 'text/html').body.textContent || video.title;
-
      setFormData(prev => ({
         ...prev,
-        title: decodedTitle,
+        title: video.title,
         artist: video.channelTitle,
         coverUrl: video.thumbnail,
         trackUrl: `https://www.youtube.com/watch?v=${video.id}`
@@ -342,7 +346,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
              )}
           </div>
           
-          {/* Footer chỉ hiện khi không ở chế độ tìm kiếm để tránh rối */}
+          {/* Footer chỉ hiện khi không ở chế độ tìm kiếm */}
           {!isSearchMode && (
               <div className="p-4 bg-slate-950 border-t border-cyan-900/30 flex gap-3 shrink-0">
                  <button onClick={() => onDelete(formData.id)} className="p-2 rounded bg-red-900/20 text-red-400 border border-red-900/50 hover:bg-red-900/40"><Trash2 size={18} /></button>
