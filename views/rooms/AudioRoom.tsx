@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Music, Plus, X, Save, Trash2, Edit3, Headphones, Mic2, Upload, 
   Link as LinkIcon, Play, Calendar, Wand2, Loader2,
-  ChevronRight, ArrowLeft, Grid, Search, Youtube, List, MapPin, Disc
+  ChevronRight, ArrowLeft, Grid, Search, Youtube, List, MapPin, Disc, Check
 } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
@@ -12,8 +12,39 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- UTILITIES ---
+// --- STYLE ANIMATION (CSS IN JS) ---
+// Hiệu ứng bay lượn 1 vòng từ góc trái dưới lên giữa màn hình
+const mascotStyles = `
+  @keyframes flyInCircle {
+    0% {
+      bottom: 20px;
+      left: 20px;
+      transform: scale(0.5) rotate(0deg);
+      opacity: 0;
+    }
+    30% {
+      bottom: 60%;
+      left: 20%;
+      transform: scale(0.8) rotate(15deg);
+      opacity: 1;
+    }
+    60% {
+      bottom: 80%;
+      left: 80%;
+      transform: scale(1) rotate(-15deg);
+    }
+    100% {
+      bottom: 50%;
+      left: 50%;
+      transform: translate(-50%, 50%) scale(1.5) rotate(0deg);
+    }
+  }
+  .animate-mascot-intro {
+    animation: flyInCircle 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+`;
 
+// --- UTILITIES ---
 const getYouTubeId = (url: string) => {
   if (!url) return null;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -25,16 +56,12 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- HÀM TÌM KIẾM NHẠC QUA iTUNES API (SIÊU ỔN ĐỊNH) ---
+// --- HÀM TÌM KIẾM NHẠC (iTUNES API) ---
 const searchMusicDatabase = async (query: string) => {
   try {
-    // Gọi API của Apple (Nhanh, Free, Không cần Key)
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=12`);
-    
     if (!response.ok) throw new Error("iTunes API Error");
-
     const data = await response.json();
-    
     if (data.results && data.results.length > 0) {
       return data.results.map((item: any) => ({
         id: item.trackId,
@@ -42,9 +69,7 @@ const searchMusicDatabase = async (query: string) => {
         artist: item.artistName,
         album: item.collectionName,
         year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
-        // Lấy ảnh chất lượng cao (thay 100x100 bằng 600x600)
         thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-        // Tạo link tìm kiếm Youtube thông minh
         youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName)}`
       }));
     }
@@ -83,20 +108,17 @@ const JewelCase3D: React.FC<{
     <div className="flex flex-col items-center gap-4 group relative z-10 hover:z-20">
         <div onClick={handleInteraction} className="relative w-32 h-32 cursor-pointer perspective-[800px] transition-all duration-500 touch-manipulation">
           <div className="w-full h-full preserve-3d transition-transform duration-500 group-hover:-translate-y-4 group-hover:rotate-x-12 group-hover:rotate-y-12">
-            {/* Disc */}
             <div className="absolute top-1 left-1 w-28 h-28 rounded-full flex items-center justify-center transition-transform duration-700 group-hover:translate-x-16 group-hover:rotate-[360deg]"
                 style={{ background: `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.8) 20%, transparent 30%, transparent 100%), radial-gradient(circle, #d1d5db 30%, #9ca3af 100%)`, boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}>
               <div className="absolute inset-0 rounded-full opacity-40 bg-gradient-to-tr from-transparent via-pink-500/20 to-cyan-500/20 mix-blend-color-dodge"></div>
               <div className="w-8 h-8 bg-slate-900 rounded-full border-2 border-white/20"></div>
               {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 drop-shadow-md z-10 text-lg">★</div>}
             </div>
-            {/* Case Back */}
             <div className="absolute inset-0 bg-slate-900 rounded border border-slate-700 shadow-xl" style={{ transform: 'translateZ(-2px)' }}>
                 <div className="absolute top-0 bottom-0 -left-2 w-2 bg-slate-800 origin-right transform rotateY(-90deg) flex items-center justify-center overflow-hidden border-l border-slate-600">
                     <span className="text-[6px] text-white whitespace-nowrap rotate-90 tracking-widest uppercase font-mono opacity-70">{item.artist} - {item.title}</span>
                 </div>
             </div>
-            {/* Case Front */}
             <div className="absolute inset-0 bg-slate-900 rounded overflow-hidden border-l border-slate-600 shadow-lg transform origin-left transition-transform duration-500 group-hover:rotate-y-[-20deg]">
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent z-20 pointer-events-none"></div>
                 {item.coverUrl ? (
@@ -179,7 +201,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -212,7 +233,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
     } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
-  // --- LOGIC TÌM KIẾM MỚI ---
   const handleMusicSearch = async () => {
      if(!searchQuery.trim()) return;
      setIsSearching(true);
@@ -229,7 +249,6 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
         artist: music.artist,
         coverUrl: music.thumbnail,
         year: music.year,
-        // Tự động điền link tìm kiếm Youtube nếu chưa có link
         trackUrl: music.youtubeSearchLink
      }));
      setIsSearchMode(false);
@@ -246,9 +265,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
              </h3>
              <div className="flex items-center gap-2">
                 {!isSearchMode && (
-                   <button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors" title="Search Music Database">
-                      <Search size={18} />
-                   </button>
+                   <button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors" title="Search Music Database"><Search size={18} /></button>
                 )}
                 <button onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`} title="Toggle Favorite">
                   {formData.isFavorite ? '★' : '☆'}
@@ -346,11 +363,30 @@ const AudioRoom: React.FC = () => {
   const [editingShelfId, setEditingShelfId] = useState<number | null>(null);
   const [tempShelfTitle, setTempShelfTitle] = useState("");
   const [bars, setBars] = useState<number[]>(new Array(30).fill(20));
-  
-  // --- Navigation State ---
   const [isNavOpen, setIsNavOpen] = useState(false);
   const shelfRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // --- MASCOT STATES ---
+  const [mascotPhase, setMascotPhase] = useState<'flying' | 'greeting' | 'returning' | 'idle'>('flying');
+
+  // --- INTRO ANIMATION SEQUENCE ---
+  useEffect(() => {
+    // Bắt đầu: Flying (2.5s) -> Greeting
+    const flyTimer = setTimeout(() => {
+      setMascotPhase('greeting');
+    }, 2500); // Khớp với thời gian animation CSS
+
+    return () => clearTimeout(flyTimer);
+  }, []);
+
+  const handleMascotClose = () => {
+    setMascotPhase('returning');
+    setTimeout(() => {
+      setMascotPhase('idle');
+    }, 1000); // Thời gian bay về
+  };
+
+  // --- (Existing logic) ---
   useEffect(() => {
     const interval = setInterval(() => setBars(prev => prev.map(() => Math.random() * 60 + 10)), 150);
     return () => clearInterval(interval);
@@ -370,6 +406,7 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // ... (Giữ nguyên các hàm handleAddShelf, handleSaveItem, v.v...)
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -500,7 +537,55 @@ const AudioRoom: React.FC = () => {
 
   return (
     <div className="relative h-full w-full flex flex-col items-center bg-slate-950 overflow-hidden">
-      
+      {/* Inject Animation Styles */}
+      <style>{mascotStyles}</style>
+
+      {/* --- MASCOT LOGIC --- */}
+      {/* 1. Flying Phase: Bay lượn vòng tròn */}
+      {mascotPhase === 'flying' && (
+         <div className="fixed z-50 w-full h-full pointer-events-none">
+            <div className="absolute bottom-4 left-4 animate-mascot-intro">
+               <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
+            </div>
+         </div>
+      )}
+
+      {/* 2. Greeting Phase: Đứng giữa, hiện dialog */}
+      {mascotPhase === 'greeting' && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
+            <div className="relative flex flex-col items-center animate-zoom-in">
+               <RavenclawTaurusMascot 
+                  greeting="Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!" 
+                  variant="music" 
+                  placement="top" 
+                  forceOpen={true} 
+                  className="scale-150 origin-bottom" 
+               />
+               <button 
+                  onClick={handleMascotClose}
+                  className="mt-8 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(8,145,178,0.5)] transition-transform hover:scale-105 flex items-center gap-2"
+               >
+                  <Check size={18} /> Bắt đầu thôi
+               </button>
+            </div>
+         </div>
+      )}
+
+      {/* 3. Returning Phase: Bay về góc */}
+      {mascotPhase === 'returning' && (
+         <div className="fixed inset-0 z-50 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-in-out"
+                 style={{ top: 'auto', left: '1rem', bottom: '1rem', transform: 'translate(0,0) scale(1)' }}>
+               <RavenclawTaurusMascot variant="music" placement="right" />
+            </div>
+         </div>
+      )}
+
+      {/* 4. Idle Phase: Vị trí cũ (Chỉ hiện nếu không xem bài hát/kệ) */}
+      {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && (
+        <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
+      )}
+
       {/* --- QUICK NAVIGATION MENU (TOP RIGHT) --- */}
       <div className="fixed top-6 right-6 z-50 flex flex-col items-end">
          <button 
@@ -534,10 +619,6 @@ const AudioRoom: React.FC = () => {
             </div>
          </div>
       </div>
-
-      {!(viewingItem?.isFavorite) && !focusedShelfId && (
-        <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
-      )}
 
       <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-2 h-64 opacity-10 pointer-events-none -z-0 gap-1">
          {bars.map((h, i) => <div key={i} className="w-full bg-cyan-500/20 blur-xl transition-all duration-300" style={{ height: `${h}%` }}></div>)}
@@ -605,13 +686,10 @@ const AudioRoom: React.FC = () => {
                            onDragOver={handleDragOver} 
                            onDrop={(e) => handleDrop(e, shelf.id)}
                         >
-                           {/* --- NEW SHELF TITLE DESIGN --- */}
                            <div className="flex items-center justify-between mb-8 w-full max-w-2xl">
                               <div className="relative group/title cursor-pointer" onClick={() => setFocusedShelfId(shelf.id)}>
-                                  {/* Background Glow */}
                                   <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-lg blur opacity-25 group-hover/title:opacity-75 transition duration-500"></div>
                                   
-                                  {/* Main Title Box */}
                                   <div className="relative flex items-center gap-4 bg-slate-900/80 border border-cyan-500/30 px-6 py-3 rounded-lg backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.1)] group-hover/title:border-cyan-400/50 transition-all">
                                       <div className="p-2 bg-cyan-950/50 rounded-md border border-cyan-500/20">
                                          <Mic2 size={18} className="text-cyan-400" />
@@ -627,7 +705,6 @@ const AudioRoom: React.FC = () => {
                                          </div>
                                       )}
 
-                                      {/* Hover Actions */}
                                       {editingShelfId !== shelf.id && (
                                           <div className="ml-4 flex items-center gap-2 opacity-0 group-hover/title:opacity-100 transition-opacity border-l border-slate-700 pl-4">
                                              <button onClick={(e) => { e.stopPropagation(); setEditingShelfId(shelf.id); setTempShelfTitle(shelf.title); }} className="p-1.5 hover:bg-cyan-900/30 rounded text-slate-400 hover:text-cyan-400 transition-colors"><Edit3 size={14}/></button>
