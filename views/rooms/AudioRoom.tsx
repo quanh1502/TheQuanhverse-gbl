@@ -12,35 +12,63 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- STYLE ANIMATION (CSS IN JS) ---
-// Hiệu ứng bay lượn 1 vòng từ góc trái dưới lên giữa màn hình
+// --- STYLE ANIMATION (CSS IN JS) - NEW BROOMSTICK EDITION ---
 const mascotStyles = `
+  /* Quỹ đạo bay lượn */
   @keyframes flyInCircle {
     0% {
-      bottom: 20px;
-      left: 20px;
-      transform: scale(0.5) rotate(0deg);
-      opacity: 0;
+      bottom: -100px; left: -100px;
+      transform: scale(0.5) rotate(15deg); opacity: 0;
     }
-    30% {
-      bottom: 60%;
-      left: 20%;
-      transform: scale(0.8) rotate(15deg);
-      opacity: 1;
+    20% {
+      bottom: 40%; left: 10%;
+      transform: scale(0.7) rotate(30deg); opacity: 1;
     }
-    60% {
-      bottom: 80%;
-      left: 80%;
-      transform: scale(1) rotate(-15deg);
+    50% {
+      bottom: 85%; left: 50%;
+      transform: translate(-50%, 0) scale(0.8) rotate(0deg);
+    }
+    75% {
+      bottom: 60%; left: 90%;
+      transform: scale(0.9) rotate(-20deg);
     }
     100% {
-      bottom: 50%;
-      left: 50%;
-      transform: translate(-50%, 50%) scale(1.5) rotate(0deg);
+      bottom: 50%; left: 50%;
+      transform: translate(-50%, 50%) scale(1.3) rotate(0deg);
     }
   }
+
+  /* Hiệu ứng lấp lánh cho bụi phép thuật */
+  @keyframes twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  /* Container chính cho animation */
   .animate-mascot-intro {
-    animation: flyInCircle 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    position: relative; /* Để định vị đuôi chổi */
+    animation: flyInCircle 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+
+  /* ĐUÔI CHỔI LẤP LÁNH (Magic Dust Trail) */
+  .animate-mascot-intro::after {
+    content: '';
+    position: absolute;
+    z-index: -1; /* Nằm sau linh vật */
+    top: 60%;
+    left: 20%; /* Vị trí đuôi chổi */
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    /* Tạo nhiều hạt bụi bằng shadow */
+    box-shadow: 
+      -15px 5px 4px rgba(255, 215, 0, 0.8),  /* Gold sparkle */
+      -30px 0px 6px rgba(0, 255, 255, 0.6),   /* Cyan sparkle */
+      -45px 8px 8px rgba(255, 255, 255, 0.7), /* White dust */
+      -60px -5px 10px rgba(255, 215, 0, 0.4), /* Fading gold */
+      -80px 2px 12px rgba(0, 255, 255, 0.2); /* Fading cyan */
+    filter: blur(2px);
+    animation: twinkle 0.8s infinite alternate; /* Nhấp nháy */
+    pointer-events: none;
   }
 `;
 
@@ -371,10 +399,10 @@ const AudioRoom: React.FC = () => {
 
   // --- INTRO ANIMATION SEQUENCE ---
   useEffect(() => {
-    // Bắt đầu: Flying (2.5s) -> Greeting
+    // Bắt đầu: Flying (2.8s) -> Greeting
     const flyTimer = setTimeout(() => {
       setMascotPhase('greeting');
-    }, 2500); // Khớp với thời gian animation CSS
+    }, 2800); // Khớp với thời gian animation CSS
 
     return () => clearTimeout(flyTimer);
   }, []);
@@ -541,21 +569,24 @@ const AudioRoom: React.FC = () => {
       <style>{mascotStyles}</style>
 
       {/* --- MASCOT LOGIC --- */}
-      {/* 1. Flying Phase: Bay lượn vòng tròn */}
+      {/* 1. Flying Phase: Bay lượn vòng tròn KÈM CHỔI & BỤI PHÉP */}
       {mascotPhase === 'flying' && (
          <div className="fixed z-50 w-full h-full pointer-events-none">
             <div className="absolute bottom-4 left-4 animate-mascot-intro">
-               <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
+               {/* Giả lập đang cưỡi chổi bằng cách xoay nhẹ */}
+               <div style={{ transform: 'rotate(-10deg)' }}>
+                 <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
+               </div>
             </div>
          </div>
       )}
 
-      {/* 2. Greeting Phase: Đứng giữa, hiện dialog */}
+      {/* 2. Greeting Phase: Đứng giữa, hiện dialog WEASLEY STYLE */}
       {mascotPhase === 'greeting' && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
             <div className="relative flex flex-col items-center animate-zoom-in">
                <RavenclawTaurusMascot 
-                  greeting="Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!" 
+                  greeting="Oi! Muggle! Chào mừng đến 'Phòng Cần Thiết' phiên bản âm nhạc! Sẵn sàng để bùng nổ chưa?!" 
                   variant="music" 
                   placement="top" 
                   forceOpen={true} 
@@ -565,7 +596,7 @@ const AudioRoom: React.FC = () => {
                   onClick={handleMascotClose}
                   className="mt-8 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(8,145,178,0.5)] transition-transform hover:scale-105 flex items-center gap-2"
                >
-                  <Check size={18} /> Bắt đầu thôi
+                  <Check size={18} /> Bắt đầu thôi!
                </button>
             </div>
          </div>
