@@ -629,14 +629,12 @@ const AudioRoom: React.FC = () => {
       {mascotPhase === 'greeting' && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
             <div className="relative flex flex-col items-center animate-zoom-in">
-               <RavenclawTaurusMascot 
-                  // LỜI THOẠI WEASLEY
-                  greeting="Blimey! Một Muggle chính hiệu đã lạc vào đây! Giữ chặt chổi nhé, nhạc ở đây còn 'bốc' hơn kẹo nổ của tụi này đấy!" 
+                              <RavenclawTaurusMascot 
+                  greeting="Lựa chọn sáng suốt đó Muggle" 
                   variant="music" 
                   placement="top" 
                   forceOpen={true} 
-                  className="scale-150 origin-bottom" 
-               />
+                  className="scale-150 origin-bottom"/>
                <button 
                   onClick={handleMascotClose}
                   // BUTTON STYLE MỚI
