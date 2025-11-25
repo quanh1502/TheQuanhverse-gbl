@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Music, Plus, X, Save, Trash2, Edit3, Headphones, Mic2, Upload, 
   Link as LinkIcon, Play, Calendar, Wand2, Loader2,
-  ChevronRight, ArrowLeft, Grid, Search, Youtube, List, MapPin, Disc, Check
+  ChevronRight, ArrowLeft, Grid, Search, Disc, Check, MapPin, List
 } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
@@ -12,59 +12,54 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- STYLE ANIMATION (CSS IN JS - FIXED) ---
-// Đã xóa comment trong chuỗi CSS để tránh lỗi JSX parser
+// --- STYLE ANIMATION (CSS IN JS) ---
 const mascotStyles = `
+  /* 1. Animation bay lượn */
   @keyframes flyInCircle {
     0% {
-      bottom: -100px; left: -100px;
-      transform: scale(0.5) rotate(15deg); opacity: 0;
+      bottom: 20px;
+      left: 20px;
+      transform: scale(0.5) rotate(0deg);
+      opacity: 0;
     }
-    20% {
-      bottom: 40%; left: 10%;
-      transform: scale(0.7) rotate(30deg); opacity: 1;
+    30% {
+      bottom: 60%;
+      left: 20%;
+      transform: scale(0.8) rotate(15deg);
+      opacity: 1;
     }
-    50% {
-      bottom: 85%; left: 50%;
-      transform: translate(-50%, 0) scale(0.8) rotate(0deg);
-    }
-    75% {
-      bottom: 60%; left: 90%;
-      transform: scale(0.9) rotate(-20deg);
+    60% {
+      bottom: 80%;
+      left: 80%;
+      transform: scale(1) rotate(-15deg);
     }
     100% {
-      bottom: 50%; left: 50%;
-      transform: translate(-50%, 50%) scale(1.3) rotate(0deg);
+      bottom: 50%;
+      left: 50%;
+      transform: translate(-50%, 50%) scale(1.5) rotate(0deg);
     }
   }
 
-  @keyframes twinkle {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.7); }
+  /* 2. Animation hạt lấp lánh rơi và mờ dần */
+  @keyframes sparkleDrop {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0) translate(0, 30px); opacity: 0; }
   }
 
   .animate-mascot-intro {
-    position: relative;
-    animation: flyInCircle 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    animation: flyInCircle 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
-  .animate-mascot-intro::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    top: 60%;
-    left: 20%;
-    width: 10px; height: 10px;
+  /* Style cho hạt lấp lánh */
+  .sparkle-trail {
+    position: fixed;
     border-radius: 50%;
-    box-shadow: 
-      -15px 5px 4px rgba(255, 215, 0, 0.8),
-      -30px 0px 6px rgba(0, 255, 255, 0.6),
-      -45px 8px 8px rgba(255, 255, 255, 0.7),
-      -60px -5px 10px rgba(255, 215, 0, 0.4),
-      -80px 2px 12px rgba(0, 255, 255, 0.2);
-    filter: blur(2px);
-    animation: twinkle 0.8s infinite alternate;
+    /* Gradient vàng kim loại đặc trưng */
+    background: radial-gradient(circle, #fff 10%, #fbbf24 60%, transparent 100%);
     pointer-events: none;
+    z-index: 40; 
+    animation: sparkleDrop 0.8s linear forwards;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
   }
 `;
 
@@ -80,7 +75,6 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- MUSIC SEARCH (iTUNES) ---
 const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=12`);
@@ -104,7 +98,67 @@ const searchMusicDatabase = async (query: string) => {
   }
 };
 
-// --- COMPONENTS ---
+// --- COMPONENT: FLYING BROOM MASCOT & SPARKLES ---
+// Component này tách biệt để xử lý logic tạo hạt mà không làm lag cả trang web
+const FlyingBroomMascot = () => {
+  const mascotRef = useRef<HTMLDivElement>(null);
+  const [sparkles, setSparkles] = useState<{id: number, x: number, y: number, size: number}[]>([]);
+
+  useEffect(() => {
+    // Tạo interval để sinh ra hạt lấp lánh liên tục
+    const interval = setInterval(() => {
+      if (mascotRef.current) {
+        const rect = mascotRef.current.getBoundingClientRect();
+        
+        // TÍNH TOÁN VỊ TRÍ ĐUÔI CHỔI
+        // Lưu ý: Các số 0.2 và 0.8 là tỉ lệ vị trí trên khung hình ảnh.
+        // Nếu tia sáng lệch, bạn chỉnh lại 2 số này.
+        const tailX = rect.left + (rect.width * 0.2); 
+        const tailY = rect.top + (rect.height * 0.8);
+
+        const newSparkle = {
+          id: Date.now(),
+          x: tailX + (Math.random() * 20 - 10), // Random vị trí một chút cho tự nhiên
+          y: tailY + (Math.random() * 20 - 10),
+          size: Math.random() * 8 + 4 // Kích thước ngẫu nhiên từ 4-12px
+        };
+
+        // Chỉ giữ lại 20 hạt gần nhất để không tốn bộ nhớ
+        setSparkles(prev => [...prev.slice(-20), newSparkle]); 
+      }
+    }, 50); // 50ms tạo 1 hạt
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <>
+      {/* Render các hạt lấp lánh */}
+      {sparkles.map(s => (
+        <div 
+          key={s.id} 
+          className="sparkle-trail"
+          style={{ 
+            left: s.x, 
+            top: s.y, 
+            width: s.size, 
+            height: s.size 
+          }} 
+        />
+      ))}
+      
+      {/* Render Mascot đang bay */}
+      <div ref={mascotRef} className="absolute bottom-4 left-4 animate-mascot-intro">
+         {/* Nghiêng 12 độ để tạo cảm giác đang lao đi */}
+         <div className="transform -rotate-12"> 
+            <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
+         </div>
+      </div>
+    </>
+  );
+};
+
+// --- SUB COMPONENTS (JewelCase, Modals...) ---
 
 const JewelCase3D: React.FC<{ 
   item: AlbumItem; 
@@ -175,8 +229,6 @@ const AddNewAlbum = ({ onClick }: { onClick: () => void }) => {
     </div>
   );
 };
-
-// --- MODALS ---
 
 const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => {
     return (
@@ -395,9 +447,10 @@ const AudioRoom: React.FC = () => {
 
   // --- INTRO ANIMATION SEQUENCE ---
   useEffect(() => {
+    // Bắt đầu: Flying (2.5s) -> Greeting
     const flyTimer = setTimeout(() => {
       setMascotPhase('greeting');
-    }, 2800); // Khớp với thời gian animation CSS
+    }, 2500); // Khớp với thời gian animation CSS
 
     return () => clearTimeout(flyTimer);
   }, []);
@@ -406,10 +459,9 @@ const AudioRoom: React.FC = () => {
     setMascotPhase('returning');
     setTimeout(() => {
       setMascotPhase('idle');
-    }, 1000); 
+    }, 1000); // Thời gian bay về
   };
 
-  // --- (Existing logic) ---
   useEffect(() => {
     const interval = setInterval(() => setBars(prev => prev.map(() => Math.random() * 60 + 10)), 150);
     return () => clearInterval(interval);
@@ -429,6 +481,7 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // CRUD Functions
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -559,24 +612,26 @@ const AudioRoom: React.FC = () => {
 
   return (
     <div className="relative h-full w-full flex flex-col items-center bg-slate-950 overflow-hidden">
+      {/* Inject Animation Styles */}
       <style>{mascotStyles}</style>
 
-      {/* --- MASCOT LOGIC --- */}
+      {/* --- MASCOT LOGIC UPDATED --- */}
+      
+      {/* 1. Flying Phase: Bay lượn vòng tròn + HẠT LẤP LÁNH */}
       {mascotPhase === 'flying' && (
          <div className="fixed z-50 w-full h-full pointer-events-none">
-            <div className="absolute bottom-4 left-4 animate-mascot-intro">
-               <div style={{ transform: 'rotate(-10deg)' }}>
-                 <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
-               </div>
-            </div>
+             {/* Component mới xử lý cả việc bay và rải hạt */}
+             <FlyingBroomMascot />
          </div>
       )}
 
+      {/* 2. Greeting Phase: Đứng giữa, hiện dialog STYLE WEASLEY */}
       {mascotPhase === 'greeting' && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
             <div className="relative flex flex-col items-center animate-zoom-in">
                <RavenclawTaurusMascot 
-                  greeting="Oi! Muggle! Chào mừng đến 'Phòng Cần Thiết' phiên bản âm nhạc! Sẵn sàng để bùng nổ chưa?!" 
+                  // LỜI THOẠI WEASLEY
+                  greeting="Blimey! Một Muggle chính hiệu đã lạc vào đây! Giữ chặt chổi nhé, nhạc ở đây còn 'bốc' hơn kẹo nổ của tụi này đấy!" 
                   variant="music" 
                   placement="top" 
                   forceOpen={true} 
@@ -584,14 +639,16 @@ const AudioRoom: React.FC = () => {
                />
                <button 
                   onClick={handleMascotClose}
-                  className="mt-8 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(8,145,178,0.5)] transition-transform hover:scale-105 flex items-center gap-2"
+                  // BUTTON STYLE MỚI
+                  className="mt-8 px-6 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-amber-400/30"
                >
-                  <Check size={18} /> Bắt đầu thôi!
+                  <Wand2 size={18} /> Mischief Managed!
                </button>
             </div>
          </div>
       )}
 
+      {/* 3. Returning Phase: Bay về góc */}
       {mascotPhase === 'returning' && (
          <div className="fixed inset-0 z-50 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-in-out"
@@ -601,6 +658,7 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
+      {/* 4. Idle Phase: Vị trí cũ (Chỉ hiện nếu không xem bài hát/kệ) */}
       {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && (
         <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
       )}
