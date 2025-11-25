@@ -642,7 +642,7 @@ const AudioRoom: React.FC = () => {
                   // BUTTON STYLE MỚI
                   className="mt-8 px-6 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-amber-400/30"
                >
-                  <Wand2 size={18} /> Mischief Managed!
+                  <Wand2 size={18} /> Lựa chọn sáng suốt đó Muggle!
                </button>
             </div>
          </div>
