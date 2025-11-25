@@ -1,65 +1,121 @@
-import React from 'react';
-import { Cpu, Wifi, BatteryCharging } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cây Tâm Tư - The Living Soul Tree (V2)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');
 
-const TechRoom: React.FC = () => {
-  return (
-    <div className="h-full w-full flex items-center justify-center relative overflow-hidden">
-       {/* Grid Background specialized for Tech */}
-       <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]"></div>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Montserrat', sans-serif;
+            color: #fff;
+        }
 
-       <div className="relative z-10 flex flex-col items-center w-full max-w-4xl">
-          
-          {/* Glitch Title */}
-          <h1 className="text-6xl md:text-8xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500 mb-12 tracking-tighter relative">
-             <span className="absolute top-0 left-0 -ml-1 opacity-50 text-red-500 animate-pulse">TECH</span>
-             TECH
-             <span className="absolute top-0 left-0 ml-1 opacity-50 text-blue-500 animate-pulse">TECH</span>
-          </h1>
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
 
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-6">
-              
-              {/* Item 1 */}
-              <div className="group relative bg-slate-900/80 border border-emerald-500/30 p-6 rounded-lg overflow-hidden hover:border-emerald-400 transition-colors">
-                 <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
-                 <div className="flex items-start justify-between">
-                    <div>
-                       <h3 className="text-emerald-400 font-mono text-xl mb-2">GADGETS_COLLECTION</h3>
-                       <p className="text-slate-400 text-sm">Khám phá những món đồ chơi công nghệ mới nhất.</p>
-                    </div>
-                    <Cpu className="text-emerald-600 group-hover:text-emerald-400 transition-colors" size={32} />
-                 </div>
-                 <div className="mt-4 flex gap-2">
-                    <span className="text-[10px] border border-emerald-900 text-emerald-700 px-2 py-1 rounded font-mono">v.2.0.5</span>
-                    <span className="text-[10px] border border-emerald-900 text-emerald-700 px-2 py-1 rounded font-mono">SMART</span>
-                 </div>
-              </div>
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 90%;
+            max-width: 550px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            pointer-events: none; /* Để click xuyên qua vùng trống */
+        }
 
-              {/* Item 2 */}
-               <div className="group relative bg-slate-900/80 border border-blue-500/30 p-6 rounded-lg overflow-hidden hover:border-blue-400 transition-colors">
-                 <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
-                 <div className="flex items-start justify-between">
-                    <div>
-                       <h3 className="text-blue-400 font-mono text-xl mb-2">CONNECTIVITY</h3>
-                       <p className="text-slate-400 text-sm">Luôn kết nối. Luôn cập nhật. Thế giới số là nhà.</p>
-                    </div>
-                    <Wifi className="text-blue-600 group-hover:text-blue-400 transition-colors" size={32} />
-                 </div>
-                 <div className="mt-4 flex gap-2">
-                    <span className="text-[10px] border border-blue-900 text-blue-700 px-2 py-1 rounded font-mono">ONLINE</span>
-                    <span className="text-[10px] border border-blue-900 text-blue-700 px-2 py-1 rounded font-mono">5G</span>
-                 </div>
-              </div>
-          </div>
+        .controls {
+            background: rgba(15, 15, 20, 0.85);
+            backdrop-filter: blur(16px);
+            padding: 20px 30px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9), inset 0 0 20px rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            pointer-events: auto;
+            transition: transform 0.3s ease;
+        }
+        .controls:hover { transform: scale(1.02); }
 
-          <div className="mt-12 flex items-center gap-4 text-slate-500 font-mono text-xs">
-             <BatteryCharging size={16} className="animate-pulse text-green-500" />
-             <span>SYSTEM STATUS: OPTIMAL</span>
-             <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-          </div>
+        .energy-group { display: flex; gap: 12px; align-items: center; }
+        .divider { width: 1px; height: 30px; background: rgba(255,255,255,0.2); }
 
-       </div>
-    </div>
-  );
-};
+        .mood-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
 
-export default TechRoom;
+        .mood-btn:hover { transform: scale(1.15); }
+        .mood-btn.active {
+            transform: scale(1.25);
+            border-color: #fff;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .mood-btn::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 6px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, top 0.2s;
+            white-space: nowrap;
+            font-family: 'Playfair Display', serif;
+        }
+        .mood-btn:hover::before { opacity: 1; top: -45px; }
+
+        textarea {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(0,0,0,0.3);
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            color: #eee;
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            text-align: center;
+            padding: 15px;
+            outline: none;
+            border-radius: 10px 10px 0 0;
+            pointer-events: auto;
+            transition: all 0.3s;
+        }
+        textarea:focus { border-bottom-color: #4facfe; background: rgba(0,0,0,0.6); }
+
+        .feed-btn {
+            margin-top: 5px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,
