@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Send, Wind } from 'lucide-react'; // Cần cài: npm install lucide-react
 
-// --- CẤU HÌNH ---
+// --- CẤU HÌNH CẢM XÚC ---
 const EMOTIONS = [
   { id: 'joy', label: 'Niềm Vui', color: '#FFD700', type: 'good' },      // Vàng
   { id: 'sad', label: 'Nỗi Buồn', color: '#3498DB', type: 'heavy' },     // Xanh dương
@@ -10,24 +11,38 @@ const EMOTIONS = [
   { id: 'empty', label: 'Trống Rỗng', color: '#BDC3C7', type: 'heavy' }  // Trắng
 ];
 
-interface Particle {
+// --- TYPES ---
+interface Projectile {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
+  targetX: number;
+  targetY: number;
   color: string;
-  type: string; 
-  life: number;
-  size: number;
+  speed: number;
+  progress: number; // 0 -> 1
 }
 
 interface Bloom {
+  id: number;
   x: number;
   y: number;
   color: string;
   size: number;
   maxSize: number;
   phase: number;
+  // Vật lý cho gió
+  vx: number; 
+  vy: number;
+  isFlyingOff: boolean; 
+}
+
+interface Branch {
+  x: number; 
+  y: number; 
+  endX: number; 
+  endY: number; 
+  depth: number; 
+  width: number;
 }
 
 const TechRoom: React.FC = () => {
@@ -35,46 +50,48 @@ const TechRoom: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [vitalityUI, setVitalityUI] = useState(10);
   const [currentMoodId, setCurrentMoodId] = useState('joy');
+  const [isWindBlowing, setIsWindBlowing] = useState(false);
 
-  // GAME STATE (Lưu trong Ref để không bị React render lại làm mất hoạt ảnh)
+  // GAME STATE
   const gameState = useRef({
     selectedMood: EMOTIONS[0],
     vitality: 10,
     time: 0,
     width: 0,
     height: 0,
-    trunkR: 40, trunkG: 40, trunkB: 40, // Màu thân cây gốc
-    particles: [] as Particle[],
-    blooms: [] as Bloom[],
-    branches: [] as any[]
+    trunkR: 40, trunkG: 40, trunkB: 40,
+    
+    branches: [] as Branch[],
+    projectiles: [] as Projectile[], // Tin nhắn đang bay
+    blooms: [] as Bloom[],           // Đốm sáng trên cây
+    
+    windForce: 0 // Lực gió hiện tại
   });
 
-  // --- HÀM TẠO CÂY (Chạy 1 lần) ---
+  // --- LOGIC TẠO CÂY ---
   const generateTreeStructure = (w: number, h: number) => {
-    const branches: any[] = [];
+    const branches: Branch[] = [];
     const grow = (x: number, y: number, len: number, angle: number, wid: number, depth: number) => {
       const endX = x + len * Math.cos(angle);
       const endY = y + len * Math.sin(angle);
-      branches.push({ x, y, endX, endY, angle, depth, width: wid });
+      branches.push({ x, y, endX, endY, angle, depth, width: wid } as any);
       
       if (len < 10 || depth > 10) return;
       
       grow(endX, endY, len * 0.75, angle - 0.3 - Math.random() * 0.2, wid * 0.7, depth + 1);
       grow(endX, endY, len * 0.75, angle + 0.3 + Math.random() * 0.2, wid * 0.7, depth + 1);
     };
-    // Gốc cây luôn ở giữa dưới màn hình
     grow(w / 2, h, h * 0.18, -Math.PI / 2, 16, 0);
     return branches;
   };
 
-  // --- KHỞI TẠO & VÒNG LẶP ANIMATION ---
+  // --- KHỞI TẠO & ANIMATION LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Resize handler
     const handleResize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -85,13 +102,13 @@ const TechRoom: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    // MAIN LOOP
+    // --- MAIN RENDER LOOP ---
     let animationId: number;
     const render = () => {
       const state = gameState.current;
-      state.time += 0.03; // Tốc độ nhịp thở
+      state.time += 0.03;
 
-      // 1. Clear & Background
+      // 1. Background & Clear
       const bgLevel = 5 + (state.vitality * 0.2); 
       ctx.fillStyle = `rgb(${bgLevel}, ${bgLevel}, ${bgLevel + 5})`;
       ctx.fillRect(0, 0, state.width, state.height);
@@ -99,81 +116,130 @@ const TechRoom: React.FC = () => {
       // 2. Vẽ Cây
       const breath = Math.sin(state.time) * 0.5 + 0.5;
       const trunkColor = `rgb(${Math.floor(state.trunkR)}, ${Math.floor(state.trunkG)}, ${Math.floor(state.trunkB)})`;
-
+      
       ctx.lineCap = "round";
       state.branches.forEach(b => {
         ctx.beginPath();
-        const sway = Math.sin(state.time + b.depth) * (b.depth * 0.5); // Gió thổi nhẹ
+        // Gió làm cây rung nhẹ
+        const windSway = state.windForce * (b.depth * 0.05) * Math.sin(state.time * 5);
+        const naturalSway = Math.sin(state.time + b.depth) * (b.depth * 0.5);
+        
         ctx.moveTo(b.x, b.y);
-        ctx.lineTo(b.endX + sway, b.endY);
+        ctx.lineTo(b.endX + naturalSway + windSway, b.endY);
         ctx.lineWidth = b.width;
         ctx.strokeStyle = trunkColor;
         
-        // Glow effect
         if (state.vitality > 40) {
           ctx.shadowBlur = (state.vitality - 40) * 0.2 * breath;
           ctx.shadowColor = trunkColor;
         } else {
-          ctx.shadowBlur = 0;
+            ctx.shadowBlur = 0;
         }
         ctx.stroke();
         ctx.shadowBlur = 0;
       });
 
-      // 3. Vẽ Particles (Hạt năng lượng bay lên)
-      for (let i = state.particles.length - 1; i >= 0; i--) {
-        let p = state.particles[i];
-        p.x += p.vx;
-        p.y += p.vy; // Bay lên trên
-        p.life--;
-        p.size *= 0.98; // Nhỏ dần
+      // 3. Vẽ Projectiles (Tin nhắn đang bay)
+      for (let i = state.projectiles.length - 1; i >= 0; i--) {
+          const p = state.projectiles[i];
+          p.progress += p.speed;
+          
+          // Tính toán vị trí theo đường cong Bezier đơn giản
+          // Điểm điều khiển (control point) để tạo đường cong
+          const cx = (p.x + p.targetX) / 2 + Math.sin(state.time * 5) * 50; 
+          const cy = Math.min(p.y, p.targetY) - 100;
 
-        ctx.fillStyle = p.color;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+          // Công thức Bezier bậc 2
+          const t = p.progress;
+          const invT = 1 - t;
+          const currX = invT * invT * p.x + 2 * invT * t * cx + t * t * p.targetX;
+          const currY = invT * invT * p.y + 2 * invT * t * cy + t * t * p.targetY;
 
-        // Xử lý khi hạt bay đến tán cây (hoặc hết đời)
-        if (p.life <= 0 || p.y < state.height * 0.4) {
-          if (p.type === 'good') {
-             // Năng lượng tốt -> Nở hoa
-             const tips = state.branches.filter(b => b.depth > 7);
-             if (tips.length > 0) {
-                const target = tips[Math.floor(Math.random() * tips.length)];
-                state.blooms.push({
-                   x: target.endX + (Math.random()-0.5)*40,
-                   y: target.endY + (Math.random()-0.5)*40,
-                   color: p.color,
-                   size: 0,
-                   maxSize: Math.random() * 5 + 3,
-                   phase: Math.random() * Math.PI
-                });
-             }
+          // Vẽ đốm sáng bay
+          ctx.fillStyle = p.color;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = p.color;
+          ctx.beginPath();
+          ctx.arc(currX, currY, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Vẽ đuôi (Trail)
+          ctx.beginPath();
+          ctx.moveTo(currX, currY);
+          ctx.lineTo(currX - (currX - p.x)*0.05, currY + 10);
+          ctx.strokeStyle = p.color;
+          ctx.globalAlpha = 0.5;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // Khi đến đích
+          if (p.progress >= 1) {
+              // Biến thành Bloom trên cây
+              state.blooms.push({
+                  id: Date.now() + i,
+                  x: p.targetX,
+                  y: p.targetY,
+                  color: p.color,
+                  size: 0,
+                  maxSize: Math.random() * 5 + 3,
+                  phase: Math.random() * Math.PI,
+                  vx: 0,
+                  vy: 0,
+                  isFlyingOff: false
+              });
+              state.projectiles.splice(i, 1);
           }
-          state.particles.splice(i, 1);
-        }
       }
 
-      // 4. Vẽ Hoa (Nở vĩnh viễn)
-      state.blooms.forEach(b => {
-        if (b.size < b.maxSize) b.size += 0.1; // Hiệu ứng nở từ từ
-        
-        const bloomBreath = Math.sin(state.time * 2 + b.phase) * 0.3 + 0.8;
-        ctx.fillStyle = b.color;
-        
-        // Cây càng khỏe hoa càng sáng
-        const glow = state.vitality > 50 ? 15 : 5;
-        ctx.shadowBlur = glow * bloomBreath;
-        ctx.shadowColor = b.color;
-        
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.size * bloomBreath, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
+      // 4. Vẽ Blooms (Đốm sáng trên cây)
+      for (let i = state.blooms.length - 1; i >= 0; i--) {
+        const b = state.blooms[i];
+
+        // Xử lý hiệu ứng Gió Thổi (Bay đi mất)
+        if (state.windForce > 0) {
+            b.isFlyingOff = true;
+            b.vx += state.windForce * 0.5 + (Math.random()-0.5); // Bay theo chiều gió
+            b.vy += (Math.random() - 0.2) * 2; // Bay loạn xạ
+        }
+
+        if (b.isFlyingOff) {
+            b.x += b.vx;
+            b.y += b.vy;
+            b.vx *= 0.98; // Drag
+            b.size *= 0.99; // Teo nhỏ dần
+            
+            // Xóa nếu bay khỏi màn hình
+            if (b.x > state.width || b.x < 0 || b.y < 0 || b.size < 0.5) {
+                state.blooms.splice(i, 1);
+                continue;
+            }
+        } else {
+            // Nở ra nếu mới sinh
+            if (b.size < b.maxSize) b.size += 0.1;
+            
+            // Nếu cây rung lắc (do gió nhẹ), đốm sáng cũng rung theo
+            const stickSway = Math.sin(state.time * 5) * state.windForce * 10;
+            
+            // Vẽ
+            const bloomBreath = Math.sin(state.time * 3 + b.phase) * 0.3 + 0.8;
+            ctx.fillStyle = b.color;
+            const glow = state.vitality > 50 ? 20 : 8;
+            ctx.shadowBlur = glow * bloomBreath;
+            ctx.shadowColor = b.color;
+            
+            ctx.beginPath();
+            ctx.arc(b.x + stickSway, b.y, b.size * bloomBreath, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+      }
+      
+      // Giảm lực gió từ từ nếu tắt gió
+      if (!isWindBlowing && state.windForce > 0) {
+          state.windForce -= 0.01;
+          if (state.windForce < 0) state.windForce = 0;
+      }
 
       animationId = requestAnimationFrame(render);
     };
@@ -183,54 +249,76 @@ const TechRoom: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationId);
     };
-  }, []);
+  }, [isWindBlowing]); // Re-bind khi trạng thái gió thay đổi
 
-  // --- HÀM XỬ LÝ: GỬI VÀO HƯ KHÔNG ---
+  // --- ACTIONS ---
+
   const sendToVoid = useCallback(() => {
     const state = gameState.current;
     const mood = state.selectedMood;
     
-    console.log("Đã gửi:", mood.label, inputValue); // Debug log để kiểm tra
-
-    // 1. Cập nhật Vitality & Màu sắc
+    // 1. Tăng Vitality
     if (mood.type === 'good') {
-        state.vitality = Math.min(100, state.vitality + 10);
-        // Sáng lên (Vàng kim)
-        state.trunkR = Math.min(200, state.trunkR + 10);
-        state.trunkG = Math.min(180, state.trunkG + 8);
-        state.trunkB = Math.min(100, state.trunkB + 2);
+        state.vitality = Math.min(100, state.vitality + 5);
+        state.trunkR = Math.min(200, state.trunkR + 5);
+        state.trunkG = Math.min(180, state.trunkG + 4);
     } else {
-        state.vitality = Math.min(100, state.vitality + 2);
-        // Thấm màu buồn vào (nhưng làm tối đi)
+        state.vitality = Math.min(100, state.vitality + 1);
+        // Thấm màu buồn
         const hexToRgb = (hex: string) => {
             const bigint = parseInt(hex.slice(1), 16);
             return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
         };
-        const moodColor = hexToRgb(mood.color);
-        state.trunkR = state.trunkR * 0.9 + moodColor.r * 0.1 * 0.5;
-        state.trunkG = state.trunkG * 0.9 + moodColor.g * 0.1 * 0.5;
-        state.trunkB = state.trunkB * 0.9 + moodColor.b * 0.1 * 0.5;
+        const c = hexToRgb(mood.color);
+        state.trunkR = state.trunkR * 0.95 + c.r * 0.05;
+        state.trunkG = state.trunkG * 0.95 + c.g * 0.05;
+        state.trunkB = state.trunkB * 0.95 + c.b * 0.05;
     }
-    
-    // Đồng bộ lại với UI React
     setVitalityUI(Math.floor(state.vitality));
 
-    // 2. Bắn Particles
-    for(let i=0; i<12; i++) {
-        state.particles.push({
-            x: state.width / 2 + (Math.random() - 0.5) * 60, // Bắn từ giữa màn hình
-            y: state.height - 120, // Cao hơn thanh input một chút
-            vx: (Math.random() - 0.5) * 4,
-            vy: -Math.random() * 8 - 4, // Bay lên nhanh
-            color: mood.color,
-            type: mood.type,
-            life: 120,
-            size: Math.random() * 4 + 2
-        });
+    // 2. Tìm điểm đích trên cây (Cành ngọn)
+    const tips = state.branches.filter(b => b.depth > 6);
+    let targetX = state.width / 2;
+    let targetY = state.height / 2;
+    
+    if (tips.length > 0) {
+        // Chọn ngẫu nhiên một cành ngọn
+        const targetBranch = tips[Math.floor(Math.random() * tips.length)];
+        // Random offset một chút xung quanh đầu cành
+        targetX = targetBranch.endX + (Math.random() - 0.5) * 20;
+        targetY = targetBranch.endY + (Math.random() - 0.5) * 20;
     }
 
+    // 3. Tạo Projectile (Tin nhắn bay)
+    state.projectiles.push({
+        x: state.width / 2, // Xuất phát từ giữa dưới (chỗ input)
+        y: state.height - 80, 
+        targetX: targetX,
+        targetY: targetY,
+        color: mood.color,
+        speed: 0.01 + Math.random() * 0.01, // Tốc độ bay
+        progress: 0
+    });
+
     setInputValue('');
-  }, [inputValue]);
+  }, []);
+
+  const triggerWind = () => {
+      // Bật gió trong 3 giây rồi tắt
+      setIsWindBlowing(true); // React state trigger re-render if needed
+      gameState.current.windForce = 2; // Set lực gió vật lý ngay lập tức
+      
+      // Reset trạng thái cây
+      gameState.current.vitality = 10;
+      setVitalityUI(10);
+      gameState.current.trunkR = 40; 
+      gameState.current.trunkG = 40; 
+      gameState.current.trunkB = 40;
+
+      setTimeout(() => {
+          setIsWindBlowing(false);
+      }, 3000);
+  };
 
   const handleSelectMood = (mood: typeof EMOTIONS[0]) => {
     setCurrentMoodId(mood.id);
@@ -239,78 +327,86 @@ const TechRoom: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
-      {/* GLOBAL STYLES */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');
       `}</style>
 
-      {/* --- CANVAS LAYER (Nằm dưới cùng) --- */}
+      {/* CANVAS LAYER */}
       <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none" />
 
-      {/* --- VITALITY METER (Góc phải) --- */}
-      <div className="absolute top-6 right-6 text-right z-10 select-none">
-        <div className="font-serif text-white/50 text-sm">Sức Sống Của Cây</div>
-        <div className="w-40 h-1.5 bg-white/10 mt-2 rounded-full overflow-hidden shadow-lg backdrop-blur">
+      {/* HEADER INFO */}
+      <div className="absolute top-6 right-6 text-right z-10 select-none pointer-events-none">
+        <div className="font-serif text-white/50 text-sm">Sức Sống</div>
+        <div className="w-32 h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
           <div 
-            className="h-full transition-all duration-700 ease-out shadow-[0_0_15px_currentColor]"
+            className="h-full transition-all duration-700 ease-out"
             style={{ 
               width: `${vitalityUI}%`,
-              background: vitalityUI > 60 ? 'linear-gradient(90deg, #FDB931, #fff)' : '#4facfe'
+              background: vitalityUI > 60 ? '#FFD700' : '#4facfe'
             }}
           ></div>
         </div>
       </div>
 
-      {/* --- INTRO TEXT --- */}
-      <div className={`absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none transition-opacity duration-1000 ${vitalityUI > 15 ? 'opacity-0' : 'opacity-80'}`}>
-        <h1 className="font-serif text-3xl text-white/40 drop-shadow-xl tracking-widest">CÂY TÂM TƯ</h1>
-        <p className="text-xs mt-3 font-light text-white/30 uppercase tracking-[2px]">Nuôi dưỡng bằng cảm xúc của bạn</p>
+      {/* WIND BUTTON (Reset) */}
+      <button 
+        onClick={triggerWind}
+        title="Thổi bay ký ức"
+        className={`absolute top-6 left-6 p-3 rounded-full border border-white/10 backdrop-blur-md transition-all duration-500 z-50 hover:bg-white/10 group ${isWindBlowing ? 'rotate-180 bg-white/20' : ''}`}
+      >
+        <Wind className={`w-5 h-5 text-white/60 group-hover:text-white ${isWindBlowing ? 'animate-pulse' : ''}`} />
+      </button>
+
+      {/* INTRO TEXT */}
+      <div className={`absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none transition-opacity duration-1000 ${vitalityUI > 15 ? 'opacity-0' : 'opacity-70'}`}>
+        <h1 className="font-serif text-3xl text-white/40 tracking-widest">CÂY TÂM TƯ</h1>
       </div>
 
-      {/* --- CONTROLS LAYER (Nằm trên cùng z-50) --- */}
-      <div className="absolute bottom-0 left-0 w-full pb-10 pt-20 px-4 flex flex-col items-center justify-end z-50 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none">
+      {/* --- CONTROLS LAYER --- */}
+      <div className="absolute bottom-0 left-0 w-full pb-8 pt-20 px-4 flex flex-col items-center justify-end z-50 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
         
-        <div className="w-full max-w-[600px] flex flex-col items-center gap-6 pointer-events-auto">
+        <div className="w-full max-w-[500px] flex flex-col items-center gap-5 pointer-events-auto">
             
-            {/* INPUT FIELD */}
-            <div className="w-full relative group">
-                <input 
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Viết điều gì đó..."
-                    className="w-full bg-transparent border-none text-center text-white/90 font-serif text-xl placeholder:text-white/20 focus:outline-none pb-3 border-b border-white/10 focus:border-white/60 transition-all z-50"
-                />
-            </div>
-
-            {/* EMOTION BUTTONS */}
-            <div className="flex gap-3 md:gap-5 p-3 md:p-4 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl z-50">
+            {/* EMOTION PALETTE */}
+            <div className="flex justify-center gap-3 p-2">
                 {EMOTIONS.map((mood) => (
                     <button
                         key={mood.id}
                         onClick={() => handleSelectMood(mood)}
-                        className={`relative w-10 h-10 md:w-12 md:h-12 rounded-full border-2 transition-all duration-200 flex items-center justify-center cursor-pointer group ${
+                        className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
                             currentMoodId === mood.id 
-                            ? 'scale-110 border-white shadow-[0_0_20px_currentColor]' 
-                            : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
+                            ? 'scale-125 border-white shadow-[0_0_10px_currentColor]' 
+                            : 'border-transparent opacity-50 hover:opacity-100 hover:scale-110'
                         }`}
-                        style={{ backgroundColor: mood.color, color: mood.color }}
-                    >
-                         {/* Tooltip */}
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-3 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
-                            {mood.label}
-                        </div>
-                    </button>
+                        style={{ backgroundColor: mood.color }}
+                        title={mood.label}
+                    />
                 ))}
             </div>
 
-            {/* ACTION BUTTON */}
-            <button 
-              onClick={sendToVoid}
-              className="mt-2 px-10 py-3 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full text-xs uppercase tracking-[4px] font-bold text-white/80 transition-all duration-200 hover:text-white hover:border-white/40 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] active:scale-95 cursor-pointer z-50"
-            >
-              Gửi vào hư không
-            </button>
+            {/* INPUT AREA WITH ARROW BUTTON */}
+            <div className="w-full relative flex items-center gap-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl transition-all focus-within:bg-white/10 focus-within:border-white/30">
+                <input 
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendToVoid()}
+                    placeholder="Gửi tâm tư vào cây..."
+                    className="flex-1 bg-transparent border-none text-white/90 font-serif text-lg px-4 focus:outline-none placeholder:text-white/30"
+                />
+                
+                <button 
+                  onClick={sendToVoid}
+                  disabled={isWindBlowing}
+                  className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white/80 transition-all hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send size={20} />
+                </button>
+            </div>
+            
+            <div className="text-[10px] text-white/30 font-light tracking-widest uppercase mt-2">
+                {EMOTIONS.find(e => e.id === currentMoodId)?.label}
+            </div>
         </div>
       </div>
     </div>
