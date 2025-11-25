@@ -12,9 +12,9 @@ import { analyzeYoutubeMetadata } from '../../services/geminiService';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- STYLE ANIMATION (CSS IN JS) - NEW BROOMSTICK EDITION ---
+// --- STYLE ANIMATION (CSS IN JS - FIXED) ---
+// Đã xóa comment trong chuỗi CSS để tránh lỗi JSX parser
 const mascotStyles = `
-  /* Quỹ đạo bay lượn */
   @keyframes flyInCircle {
     0% {
       bottom: -100px; left: -100px;
@@ -38,36 +38,32 @@ const mascotStyles = `
     }
   }
 
-  /* Hiệu ứng lấp lánh cho bụi phép thuật */
   @keyframes twinkle {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.7); }
   }
 
-  /* Container chính cho animation */
   .animate-mascot-intro {
-    position: relative; /* Để định vị đuôi chổi */
+    position: relative;
     animation: flyInCircle 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
   }
 
-  /* ĐUÔI CHỔI LẤP LÁNH (Magic Dust Trail) */
   .animate-mascot-intro::after {
     content: '';
     position: absolute;
-    z-index: -1; /* Nằm sau linh vật */
+    z-index: -1;
     top: 60%;
-    left: 20%; /* Vị trí đuôi chổi */
+    left: 20%;
     width: 10px; height: 10px;
     border-radius: 50%;
-    /* Tạo nhiều hạt bụi bằng shadow */
     box-shadow: 
-      -15px 5px 4px rgba(255, 215, 0, 0.8),  /* Gold sparkle */
-      -30px 0px 6px rgba(0, 255, 255, 0.6),   /* Cyan sparkle */
-      -45px 8px 8px rgba(255, 255, 255, 0.7), /* White dust */
-      -60px -5px 10px rgba(255, 215, 0, 0.4), /* Fading gold */
-      -80px 2px 12px rgba(0, 255, 255, 0.2); /* Fading cyan */
+      -15px 5px 4px rgba(255, 215, 0, 0.8),
+      -30px 0px 6px rgba(0, 255, 255, 0.6),
+      -45px 8px 8px rgba(255, 255, 255, 0.7),
+      -60px -5px 10px rgba(255, 215, 0, 0.4),
+      -80px 2px 12px rgba(0, 255, 255, 0.2);
     filter: blur(2px);
-    animation: twinkle 0.8s infinite alternate; /* Nhấp nháy */
+    animation: twinkle 0.8s infinite alternate;
     pointer-events: none;
   }
 `;
@@ -84,7 +80,7 @@ const getYouTubeThumbnail = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
-// --- HÀM TÌM KIẾM NHẠC (iTUNES API) ---
+// --- MUSIC SEARCH (iTUNES) ---
 const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=12`);
@@ -399,7 +395,6 @@ const AudioRoom: React.FC = () => {
 
   // --- INTRO ANIMATION SEQUENCE ---
   useEffect(() => {
-    // Bắt đầu: Flying (2.8s) -> Greeting
     const flyTimer = setTimeout(() => {
       setMascotPhase('greeting');
     }, 2800); // Khớp với thời gian animation CSS
@@ -411,7 +406,7 @@ const AudioRoom: React.FC = () => {
     setMascotPhase('returning');
     setTimeout(() => {
       setMascotPhase('idle');
-    }, 1000); // Thời gian bay về
+    }, 1000); 
   };
 
   // --- (Existing logic) ---
@@ -434,7 +429,6 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // ... (Giữ nguyên các hàm handleAddShelf, handleSaveItem, v.v...)
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -565,15 +559,12 @@ const AudioRoom: React.FC = () => {
 
   return (
     <div className="relative h-full w-full flex flex-col items-center bg-slate-950 overflow-hidden">
-      {/* Inject Animation Styles */}
       <style>{mascotStyles}</style>
 
       {/* --- MASCOT LOGIC --- */}
-      {/* 1. Flying Phase: Bay lượn vòng tròn KÈM CHỔI & BỤI PHÉP */}
       {mascotPhase === 'flying' && (
          <div className="fixed z-50 w-full h-full pointer-events-none">
             <div className="absolute bottom-4 left-4 animate-mascot-intro">
-               {/* Giả lập đang cưỡi chổi bằng cách xoay nhẹ */}
                <div style={{ transform: 'rotate(-10deg)' }}>
                  <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
                </div>
@@ -581,7 +572,6 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
-      {/* 2. Greeting Phase: Đứng giữa, hiện dialog WEASLEY STYLE */}
       {mascotPhase === 'greeting' && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
             <div className="relative flex flex-col items-center animate-zoom-in">
@@ -602,7 +592,6 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
-      {/* 3. Returning Phase: Bay về góc */}
       {mascotPhase === 'returning' && (
          <div className="fixed inset-0 z-50 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-in-out"
@@ -612,7 +601,6 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
-      {/* 4. Idle Phase: Vị trí cũ (Chỉ hiện nếu không xem bài hát/kệ) */}
       {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && (
         <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
       )}
