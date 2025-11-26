@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Send, Wind, Music } from 'lucide-react'; // Đã thêm icon Music
+import { Send, Wind, Music } from 'lucide-react';
 
 // --- CẤU HÌNH CẢM XÚC ---
 const EMOTIONS = [
@@ -44,7 +44,7 @@ interface Branch {
   width: number;
 }
 
-// Thêm Props để nhận hàm chuyển hướng từ App.tsx
+// Props nhận hàm điều hướng từ App.tsx
 interface TechRoomProps {
     onNavigate: (room: 'tech' | 'audio', params?: any) => void;
 }
@@ -56,8 +56,9 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const [currentMoodId, setCurrentMoodId] = useState('joy');
   const [isWindBlowing, setIsWindBlowing] = useState(false);
 
-  // --- STATE MỚI: PHÁT HIỆN TÂM TRẠNG ---
-  const [heavyEmotionCount, setHeavyEmotionCount] = useState(0); // Đếm số lần buồn
+  // --- STATE MỚI: THEO DÕI CẢM XÚC NÂNG CAO ---
+  const [emotionTracker, setEmotionTracker] = useState<{[key: string]: number}>({}); // Đếm tần suất từng cảm xúc
+  const [dominantMood, setDominantMood] = useState<typeof EMOTIONS[0] | null>(null); // Cảm xúc chủ đạo
   const [showMusicPrompt, setShowMusicPrompt] = useState(false); // Hiện popup
 
   // GAME STATE
@@ -248,21 +249,21 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     const state = gameState.current;
     const mood = state.selectedMood;
     
-    // --- LOGIC MỚI: ĐẾM CẢM XÚC ĐỂ GỢI Ý NHẠC ---
-    if (mood.type === 'heavy') {
-        const newCount = heavyEmotionCount + 1;
-        setHeavyEmotionCount(newCount);
+    // --- LOGIC MỚI: ĐẾM CẢM XÚC ĐA DẠNG ---
+    setEmotionTracker(prev => {
+        const currentCount = (prev[mood.id] || 0) + 1;
+        const newTracker = { ...prev, [mood.id]: currentCount };
         
-        // Nếu tích tụ đủ 3 lần tiêu cực -> Hiện gợi ý
-        if (newCount >= 3) {
-            // Delay 1.5s để người dùng nhìn thấy tia sáng bay lên trước đã
-            setTimeout(() => setShowMusicPrompt(true), 1500); 
+        // Nếu tích tụ đủ 3 lần cùng 1 cảm xúc -> Hiện gợi ý
+        if (currentCount >= 3) {
+            setDominantMood(mood);
+            setTimeout(() => setShowMusicPrompt(true), 1500); // Delay để người dùng thấy hạt bay
+            return {}; // Reset bộ đếm để không bị spam
         }
-    } else {
-        setHeavyEmotionCount(0); // Reset bộ đếm nếu gửi cảm xúc tích cực
-    }
+        return newTracker;
+    });
 
-    // --- LOGIC CŨ: CẬP NHẬT CÂY ---
+    // --- LOGIC CŨ: CẬP NHẬT HÌNH ẢNH CÂY ---
     if (mood.type === 'good') {
         state.vitality = Math.min(100, state.vitality + 5);
         state.trunkR = Math.min(200, state.trunkR + 5);
@@ -301,7 +302,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     });
 
     setInputValue('');
-  }, [heavyEmotionCount]); // Cần dependency này để state update đúng
+  }, []); 
 
   const triggerWind = () => {
       setIsWindBlowing(true);
@@ -312,7 +313,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       gameState.current.trunkG = 40; 
       gameState.current.trunkB = 40;
       
-      setHeavyEmotionCount(0); // Reset bộ đếm khi gió thổi
+      setEmotionTracker({}); // Reset bộ đếm khi gió thổi
       setTimeout(() => {
           setIsWindBlowing(false);
       }, 3000);
@@ -323,35 +324,46 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     gameState.current.selectedMood = mood;
   };
 
+  // --- HELPER: THÔNG ĐIỆP GỢI Ý ---
+  const getPromptMessage = () => {
+      switch(dominantMood?.id) {
+          case 'joy': return "Năng lượng của bạn đang rất tuyệt! Muốn 'quẩy' thêm một chút không?";
+          case 'sad': return "Ngày hôm nay có vẻ hơi nặng nề. Để âm nhạc xoa dịu bạn nhé?";
+          case 'anger': return "Có quá nhiều lửa trong lòng? Hãy để âm nhạc giúp bạn giải tỏa.";
+          case 'empty': return "Cảm thấy trống rỗng? Hãy để giai điệu lấp đầy khoảng lặng này.";
+          case 'dream': return "Bạn đang bay bổng? Cùng phiêu lưu vào thế giới âm thanh nào.";
+          case 'heal': return "Cần thêm sự chữa lành? Chúng tôi có liều thuốc tinh thần cho bạn.";
+          default: return "Bạn có muốn nghe một bản nhạc không?";
+      }
+  };
+
   return (
     <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');
       `}</style>
 
-      {/* --- POPUP GỢI Ý NGHE NHẠC (MỚI) --- */}
+      {/* --- POPUP GỢI Ý NGHE NHẠC THÔNG MINH (MỚI) --- */}
       {showMusicPrompt && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4">
             <div className="bg-[#151515] border border-white/10 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_50px_rgba(255,255,255,0.05)] transform scale-100 transition-all">
                 <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Music size={24} className="text-white/70" />
                 </div>
-                <h3 className="text-2xl font-serif text-white/90 mb-3">Ngày hôm nay hơi nặng nề nhỉ?</h3>
-                <p className="text-white/50 text-sm mb-8 font-light leading-relaxed">
-                    Có vẻ bạn đang mang nhiều tâm tư. Bạn có muốn nghe một bản nhạc để xoa dịu không?
-                </p>
-                <div className="flex gap-4 justify-center">
+                <h3 className="text-xl font-serif text-white/90 mb-3 leading-snug">{getPromptMessage()}</h3>
+                
+                <div className="flex gap-4 justify-center mt-6">
                     <button 
-                        onClick={() => { setShowMusicPrompt(false); setHeavyEmotionCount(0); }}
+                        onClick={() => { setShowMusicPrompt(false); setEmotionTracker({}); }}
                         className="px-6 py-3 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-colors text-xs uppercase tracking-widest font-bold"
                     >
-                        Mình ổn
+                        Không cần đâu
                     </button>
                     <button 
-                        onClick={() => onNavigate('audio', { mood: 'healing' })}
+                        onClick={() => onNavigate('audio', { mood: dominantMood?.id })}
                         className="px-8 py-3 bg-white text-black rounded-full font-bold text-xs uppercase tracking-widest hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all transform hover:scale-105"
                     >
-                        Nghe nhạc
+                        Nghe ngay
                     </button>
                 </div>
             </div>
