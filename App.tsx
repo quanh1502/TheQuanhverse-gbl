@@ -6,6 +6,7 @@ import { RoomType } from './types';
 import { DataProvider } from './contexts/DataContext';
 import SyncBoard from './components/SyncBoard';
 
+
 const App: React.FC = () => {
   const [currentRoom, setCurrentRoom] = useState<RoomType>(RoomType.VOID);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
