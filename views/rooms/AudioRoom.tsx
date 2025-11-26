@@ -46,6 +46,7 @@ const getYouTubeId = (url: string) => {
 
 const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 
+// Tìm kiếm nhạc trên iTunes
 const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
@@ -58,7 +59,7 @@ const searchMusicDatabase = async (query: string) => {
       album: item.collectionName,
       year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
       thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-      // Tạo link tìm kiếm Youtube thông minh
+      // Tạo link tìm kiếm Youtube từ tên bài hát + ca sĩ
       youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName + " lyrics")}`
     })) : [];
   } catch (error) {
@@ -67,8 +68,7 @@ const searchMusicDatabase = async (query: string) => {
   }
 };
 
-// --- HELPERS: MOOD LOGIC ---
-// Từ khóa tìm kiếm dựa trên cảm xúc (Mô phỏng phân tích lời bài hát/giai điệu)
+// --- MOOD HELPERS ---
 const getMoodSearchQuery = (moodId: string) => {
   switch (moodId) {
     case 'joy': return ['happy upbeat pop', 'summer vibes', 'energetic dance', 'feel good songs'];
@@ -81,7 +81,6 @@ const getMoodSearchQuery = (moodId: string) => {
   }
 };
 
-// Lời thoại Mascot tương ứng
 const getMascotMessage = (moodId: string) => {
   switch (moodId) {
     case 'joy': return "Năng lượng tuyệt vời! Ta tìm thấy thứ này để bồ 'quẩy' nè!";
@@ -125,7 +124,7 @@ const FlyingBroomMascot = () => {
   );
 };
 
-// --- SUB COMPONENTS ---
+// --- SUB COMPONENTS (JewelCase, AddNewAlbum, Modals) ---
 
 const JewelCase3D: React.FC<{ item: AlbumItem; onClick: () => void; onEdit: () => void; }> = ({ item, onClick, onEdit }) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -182,20 +181,18 @@ const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
     </div>
 );
 
-// --- DETAIL MODAL (NÂNG CẤP ĐỂ HIỂN THỊ BÀI EXTERNAL) ---
 const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
         <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
         <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.15)] overflow-hidden animate-zoom-in flex flex-col md:flex-row z-[105]">
             <div className="w-full md:w-1/2 aspect-square md:aspect-auto relative bg-black">
-                {/* Hiển thị ảnh bìa chất lượng cao nếu có */}
                 {item.coverUrl ? <img src={item.coverUrl.replace('100x100', '600x600')} alt={item.title} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center"><Music size={64} className="text-cyan-500/30" /></div>}
                 <button onClick={onClose} className="absolute top-4 right-4 md:hidden text-white bg-black/50 p-2 rounded-full backdrop-blur-sm"><X size={20} /></button>
             </div>
             <div className="flex-1 p-8 flex flex-col justify-center relative">
                 <button onClick={onClose} className="absolute top-4 right-4 hidden md:block text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
                 
-                {/* Tag thông minh cho bài hát đề xuất */}
+                {/* Tag "Gợi ý" nếu có */}
                 {item.description && item.description.includes("Gợi ý") && (
                     <div className="mb-4">
                         <span className="text-[10px] font-mono uppercase tracking-widest bg-amber-900/30 text-amber-400 px-2 py-1 rounded border border-amber-500/20 animate-pulse">
@@ -204,20 +201,13 @@ const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }
                     </div>
                 )}
 
-                <div className="mb-6">
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2>
-                    <p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p>
-                </div>
-                
+                <div className="mb-6"><h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2><p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p></div>
                 <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
                     <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year || "Unknown"}</span>
                     {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
                     {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
                 </div>
-                
-                <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40">
-                    <p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p>
-                </div>
+                <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40"><p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p></div>
                 
                 {item.trackUrl && (
                     <a href={item.trackUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all shadow-[0_4px_20px_rgba(8,145,178,0.4)] hover:scale-105">
@@ -342,7 +332,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
 
 // --- MAIN COMPONENT: AudioRoom ---
 interface AudioRoomProps {
-    initialMood?: string; // Nhận mood từ TechRoom
+    initialMood?: string; 
 }
 
 const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
@@ -380,7 +370,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
     return () => unsubscribe();
   }, []);
 
-  // --- LOGIC GREETING & RECOMMENDATION (EXTERNAL) ---
+  // --- LOGIC ĐỀ XUẤT NHẠC TỪ ITUNES (EXTERNAL) ---
   useEffect(() => {
     // Chờ mascot bay vào (2.5s) sau đó thực hiện tìm kiếm
     const flyTimer = setTimeout(async () => {
