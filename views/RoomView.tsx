@@ -11,18 +11,52 @@ interface RoomViewProps {
   room: RoomType;
   onBack: () => void;
   isExiting: boolean;
+  // Props mới: Nhận hàm điều hướng và dữ liệu từ App.tsx
+  onNavigate: (room: RoomType, params?: any) => void;
+  roomParams?: any;
 }
 
-const RoomView: React.FC<RoomViewProps> = ({ room, onBack, isExiting }) => {
+const RoomView: React.FC<RoomViewProps> = ({ 
+  room, 
+  onBack, 
+  isExiting,
+  onNavigate,
+  roomParams
+}) => {
   
   const renderRoomContent = () => {
     switch (room) {
-      case RoomType.IDENTITY: return <IdentityRoom />;
-      case RoomType.CAFE: return <CafeRoom />;
-      case RoomType.AUDIO: return <AudioRoom />;
-      case RoomType.TECH: return <TechRoom />;
-      case RoomType.PRISM: return <PrismRoom />;
-      default: return <div className="text-white">Room Not Found</div>;
+      case RoomType.IDENTITY: 
+        return <IdentityRoom />;
+        
+      case RoomType.CAFE: 
+        return <CafeRoom />;
+        
+      case RoomType.AUDIO: 
+        return (
+          <AudioRoom 
+            // Truyền mood (tâm trạng) nhận được từ TechRoom vào AudioRoom
+            initialMood={roomParams?.mood} 
+          />
+        );
+        
+      case RoomType.TECH: 
+        return (
+          <TechRoom 
+            // Truyền hàm chuyển hướng xuống TechRoom
+            // TechRoom trả về string 'audio', ta map nó sang RoomType.AUDIO
+            onNavigate={(targetRoom: string, params: any) => {
+               const target = targetRoom === 'audio' ? RoomType.AUDIO : RoomType.TECH;
+               onNavigate(target, params);
+            }} 
+          />
+        );
+        
+      case RoomType.PRISM: 
+        return <PrismRoom />;
+        
+      default: 
+        return <div className="text-white flex items-center justify-center h-full">Room Not Found</div>;
     }
   };
 
