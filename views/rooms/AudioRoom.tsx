@@ -16,31 +16,13 @@ import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'fireb
 const mascotStyles = `
   /* 1. Animation bay lượn */
   @keyframes flyInCircle {
-    0% {
-      bottom: 20px;
-      left: 20px;
-      transform: scale(0.5) rotate(0deg);
-      opacity: 0;
-    }
-    30% {
-      bottom: 60%;
-      left: 20%;
-      transform: scale(0.8) rotate(15deg);
-      opacity: 1;
-    }
-    60% {
-      bottom: 80%;
-      left: 80%;
-      transform: scale(1) rotate(-15deg);
-    }
-    100% {
-      bottom: 50%;
-      left: 50%;
-      transform: translate(-50%, 50%) scale(1.5) rotate(0deg);
-    }
+    0% { bottom: 20px; left: 20px; transform: scale(0.5) rotate(0deg); opacity: 0; }
+    30% { bottom: 60%; left: 20%; transform: scale(0.8) rotate(15deg); opacity: 1; }
+    60% { bottom: 80%; left: 80%; transform: scale(1) rotate(-15deg); }
+    100% { bottom: 50%; left: 50%; transform: translate(-50%, 50%) scale(1.5) rotate(0deg); }
   }
 
-  /* 2. Animation hạt lấp lánh rơi và mờ dần */
+  /* 2. Animation hạt lấp lánh */
   @keyframes sparkleDrop {
     0% { transform: scale(1); opacity: 1; }
     100% { transform: scale(0) translate(0, 30px); opacity: 0; }
@@ -50,14 +32,10 @@ const mascotStyles = `
     animation: flyInCircle 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
-  /* Style cho hạt lấp lánh */
   .sparkle-trail {
-    position: fixed;
-    border-radius: 50%;
-    /* Gradient vàng kim loại đặc trưng */
+    position: fixed; border-radius: 50%;
     background: radial-gradient(circle, #fff 10%, #fbbf24 60%, transparent 100%);
-    pointer-events: none;
-    z-index: 40; 
+    pointer-events: none; z-index: 40; 
     animation: sparkleDrop 0.8s linear forwards;
     box-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
   }
@@ -71,85 +49,51 @@ const getYouTubeId = (url: string) => {
   return (match && match[2].length === 11) ? match[2] : null;
 };
 
-const getYouTubeThumbnail = (id: string) => {
-  return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-};
+const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 
 const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=12`);
     if (!response.ok) throw new Error("iTunes API Error");
     const data = await response.json();
-    if (data.results && data.results.length > 0) {
-      return data.results.map((item: any) => ({
-        id: item.trackId,
-        title: item.trackName,
-        artist: item.artistName,
-        album: item.collectionName,
-        year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
-        thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-        youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName)}`
-      }));
-    }
-    return [];
+    return data.results && data.results.length > 0 ? data.results.map((item: any) => ({
+      id: item.trackId,
+      title: item.trackName,
+      artist: item.artistName,
+      album: item.collectionName,
+      year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
+      thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
+      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName)}`
+    })) : [];
   } catch (error) {
     console.error("Music Search Error:", error);
     return [];
   }
 };
 
-// --- COMPONENT: FLYING BROOM MASCOT & SPARKLES ---
-// Component này tách biệt để xử lý logic tạo hạt mà không làm lag cả trang web
+// --- COMPONENT: FLYING MASCOT ---
 const FlyingBroomMascot = () => {
   const mascotRef = useRef<HTMLDivElement>(null);
   const [sparkles, setSparkles] = useState<{id: number, x: number, y: number, size: number}[]>([]);
 
   useEffect(() => {
-    // Tạo interval để sinh ra hạt lấp lánh liên tục
     const interval = setInterval(() => {
       if (mascotRef.current) {
         const rect = mascotRef.current.getBoundingClientRect();
-        
-        // TÍNH TOÁN VỊ TRÍ ĐUÔI CHỔI
-        // Lưu ý: Các số 0.2 và 0.8 là tỉ lệ vị trí trên khung hình ảnh.
-        // Nếu tia sáng lệch, bạn chỉnh lại 2 số này.
         const tailX = rect.left + (rect.width * 0.2); 
         const tailY = rect.top + (rect.height * 0.8);
-
-        const newSparkle = {
-          id: Date.now(),
-          x: tailX + (Math.random() * 20 - 10), // Random vị trí một chút cho tự nhiên
-          y: tailY + (Math.random() * 20 - 10),
-          size: Math.random() * 8 + 4 // Kích thước ngẫu nhiên từ 4-12px
-        };
-
-        // Chỉ giữ lại 20 hạt gần nhất để không tốn bộ nhớ
-        setSparkles(prev => [...prev.slice(-20), newSparkle]); 
+        setSparkles(prev => [...prev.slice(-20), {
+          id: Date.now(), x: tailX + (Math.random() * 20 - 10), y: tailY + (Math.random() * 20 - 10), size: Math.random() * 8 + 4
+        }]); 
       }
-    }, 50); // 50ms tạo 1 hạt
-
+    }, 50);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <>
-      {/* Render các hạt lấp lánh */}
-      {sparkles.map(s => (
-        <div 
-          key={s.id} 
-          className="sparkle-trail"
-          style={{ 
-            left: s.x, 
-            top: s.y, 
-            width: s.size, 
-            height: s.size 
-          }} 
-        />
-      ))}
-      
-      {/* Render Mascot đang bay */}
+      {sparkles.map(s => (<div key={s.id} className="sparkle-trail" style={{ left: s.x, top: s.y, width: s.size, height: s.size }} />))}
       <div ref={mascotRef} className="absolute bottom-4 left-4 animate-mascot-intro">
-         {/* Nghiêng 12 độ để tạo cảm giác đang lao đi */}
          <div className="transform -rotate-12"> 
             <RavenclawTaurusMascot variant="music" placement="right" forceOpen={false} className="scale-150" />
          </div>
@@ -158,13 +102,9 @@ const FlyingBroomMascot = () => {
   );
 };
 
-// --- SUB COMPONENTS (JewelCase, Modals...) ---
+// --- SUB COMPONENTS ---
 
-const JewelCase3D: React.FC<{ 
-  item: AlbumItem; 
-  onClick: () => void; 
-  onEdit: () => void;
-}> = ({ item, onClick, onEdit }) => {
+const JewelCase3D: React.FC<{ item: AlbumItem; onClick: () => void; onEdit: () => void; }> = ({ item, onClick, onEdit }) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickCountRef = useRef(0);
 
@@ -172,13 +112,9 @@ const JewelCase3D: React.FC<{
     e.stopPropagation();
     clickCountRef.current += 1;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    if (clickCountRef.current === 2) {
-      clickCountRef.current = 0; onEdit();
-    } else {
-      timerRef.current = setTimeout(() => {
-        if (clickCountRef.current === 1) onClick(); 
-        clickCountRef.current = 0; timerRef.current = null;
-      }, 250);
+    if (clickCountRef.current === 2) { clickCountRef.current = 0; onEdit(); } 
+    else {
+      timerRef.current = setTimeout(() => { if (clickCountRef.current === 1) onClick(); clickCountRef.current = 0; timerRef.current = null; }, 250);
     }
   };
 
@@ -202,10 +138,7 @@ const JewelCase3D: React.FC<{
                 {item.coverUrl ? (
                     <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover opacity-90" />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-blue-900 flex flex-col items-center justify-center p-2 text-center">
-                      <Music size={32} className="text-cyan-400/50 mb-2" />
-                      <span className="text-[8px] text-cyan-200 font-bold uppercase">{item.title}</span>
-                    </div>
+                    <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-blue-900 flex flex-col items-center justify-center p-2 text-center"><Music size={32} className="text-cyan-400/50 mb-2" /><span className="text-[8px] text-cyan-200 font-bold uppercase">{item.title}</span></div>
                 )}
                 <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-white/20 z-30"></div>
             </div>
@@ -219,59 +152,42 @@ const JewelCase3D: React.FC<{
   );
 };
 
-const AddNewAlbum = ({ onClick }: { onClick: () => void }) => {
-  return (
+const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
     <div onClick={onClick} className="mb-12 w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-cyan-500/20 rounded bg-cyan-900/5 hover:bg-cyan-900/20 hover:border-cyan-400/50 transition-all cursor-pointer group perspective-[800px]">
-       <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center group-hover:scale-110 transition-transform group-hover:bg-cyan-500/20">
-          <Plus className="text-cyan-500/50 group-hover:text-cyan-400" />
-       </div>
+       <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center group-hover:scale-110 transition-transform group-hover:bg-cyan-500/20"><Plus className="text-cyan-500/50 group-hover:text-cyan-400" /></div>
        <span className="mt-2 text-[9px] text-cyan-400/40 font-mono uppercase tracking-widest group-hover:text-cyan-300">Add CD</span>
     </div>
-  );
-};
+);
 
-const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => {
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
-            {item.isFavorite && (
-               <div className="absolute top-24 md:top-1/3 right-4 md:right-24 z-[110]">
-                  <RavenclawTaurusMascot greeting="Bài này Quanh hay nghe lắm nè" forceOpen={true} variant="music" placement="left" className="scale-75 origin-right" style={{ animationDuration: '6s' }} dialogClassName="w-40 text-center rounded-xl"/>
-               </div>
-            )}
-            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.15)] overflow-hidden animate-zoom-in flex flex-col md:flex-row z-[105]">
-                <div className="w-full md:w-1/2 aspect-square md:aspect-auto relative bg-black">
-                    {item.coverUrl ? (
-                        <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover opacity-90" />
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center"><Music size={64} className="text-cyan-500/30" /></div>
-                    )}
-                    <button onClick={onClose} className="absolute top-4 right-4 md:hidden text-white bg-black/50 p-2 rounded-full backdrop-blur-sm"><X size={20} /></button>
+const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
+        {item.isFavorite && (
+           <div className="absolute top-24 md:top-1/3 right-4 md:right-24 z-[110]">
+              <RavenclawTaurusMascot greeting="Bài này Quanh hay nghe lắm nè" forceOpen={true} variant="music" placement="left" className="scale-75 origin-right" style={{ animationDuration: '6s' }} dialogClassName="w-40 text-center rounded-xl"/>
+           </div>
+        )}
+        <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.15)] overflow-hidden animate-zoom-in flex flex-col md:flex-row z-[105]">
+            <div className="w-full md:w-1/2 aspect-square md:aspect-auto relative bg-black">
+                {item.coverUrl ? <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center"><Music size={64} className="text-cyan-500/30" /></div>}
+                <button onClick={onClose} className="absolute top-4 right-4 md:hidden text-white bg-black/50 p-2 rounded-full backdrop-blur-sm"><X size={20} /></button>
+            </div>
+            <div className="flex-1 p-8 flex flex-col justify-center relative">
+                <button onClick={onClose} className="absolute top-4 right-4 hidden md:block text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="mb-6"><h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2><p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p></div>
+                <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
+                    <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year || "Unknown"}</span>
+                    {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
+                    {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
                 </div>
-                <div className="flex-1 p-8 flex flex-col justify-center relative">
-                    <button onClick={onClose} className="absolute top-4 right-4 hidden md:block text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
-                    <div className="mb-6">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2>
-                        <p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
-                        <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year || "Unknown"}</span>
-                        {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
-                        {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
-                    </div>
-                    <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40">
-                         <p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p>
-                    </div>
-                    {item.trackUrl && (
-                        <a href={item.trackUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all shadow-[0_4px_20px_rgba(8,145,178,0.4)]">
-                            <div className="p-1 bg-white rounded-full text-cyan-600"><Play size={14} fill="currentColor" /></div> Listen Now
-                        </a>
-                    )}
-                </div>
+                <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40"><p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p></div>
+                {item.trackUrl && (
+                    <a href={item.trackUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all shadow-[0_4px_20px_rgba(8,145,178,0.4)]"><div className="p-1 bg-white rounded-full text-cyan-600"><Play size={14} fill="currentColor" /></div> Listen Now</a>
+                )}
             </div>
         </div>
-    )
-}
+    </div>
+);
 
 const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
@@ -299,34 +215,20 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
       if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) }));
       const metadata = await analyzeYoutubeMetadata(formData.trackUrl);
       if (metadata) {
-        setFormData(prev => ({
-          ...prev,
-          title: metadata.title || prev.title,
-          artist: metadata.artist || prev.artist,
-          year: metadata.year || prev.year,
-        }));
+        setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year }));
       }
     } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
   const handleMusicSearch = async () => {
      if(!searchQuery.trim()) return;
-     setIsSearching(true);
-     setSearchResults([]); 
+     setIsSearching(true); setSearchResults([]); 
      const results = await searchMusicDatabase(searchQuery);
-     setSearchResults(results);
-     setIsSearching(false);
+     setSearchResults(results); setIsSearching(false);
   };
 
   const handleSelectMusic = (music: any) => {
-     setFormData(prev => ({
-        ...prev,
-        title: music.title,
-        artist: music.artist,
-        coverUrl: music.thumbnail,
-        year: music.year,
-        trackUrl: music.youtubeSearchLink
-     }));
+     setFormData(prev => ({ ...prev, title: music.title, artist: music.artist, coverUrl: music.thumbnail, year: music.year, trackUrl: music.youtubeSearchLink }));
      setIsSearchMode(false);
   };
 
@@ -335,17 +237,10 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
        <div className="relative bg-slate-900 border border-cyan-900 w-full max-w-lg rounded-xl shadow-[0_0_50px_rgba(8,145,178,0.2)] overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
           <div className="p-5 bg-slate-950 border-b border-cyan-900/50 flex justify-between items-center shrink-0">
-             <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
-                {isSearchMode ? <Disc size={18} /> : <Edit3 size={18} />} 
-                {isSearchMode ? "Find Music (iTunes)" : "Edit Metadata"}
-             </h3>
+             <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">{isSearchMode ? <Disc size={18} /> : <Edit3 size={18} />} {isSearchMode ? "Find Music (iTunes)" : "Edit Metadata"}</h3>
              <div className="flex items-center gap-2">
-                {!isSearchMode && (
-                   <button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors" title="Search Music Database"><Search size={18} /></button>
-                )}
-                <button onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`} title="Toggle Favorite">
-                  {formData.isFavorite ? '★' : '☆'}
-                </button>
+                {!isSearchMode && (<button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors" title="Search Music Database"><Search size={18} /></button>)}
+                <button onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/50' : 'text-slate-600 hover:text-yellow-400 hover:bg-slate-800'}`} title="Toggle Favorite">{formData.isFavorite ? '★' : '☆'}</button>
                 <div className="w-[1px] h-6 bg-slate-800 mx-1"></div>
                 <button onClick={onClose} className="text-slate-500 hover:text-cyan-400"><X size={20}/></button>
              </div>
@@ -354,36 +249,15 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
              {isSearchMode ? (
                 <div className="space-y-4 animate-fade-in">
                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                         <input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Enter song or artist..." className="w-full bg-slate-800/80 border border-slate-600 rounded-lg p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" />
-                         <Search size={16} className="absolute left-3 top-3.5 text-slate-500" />
-                      </div>
-                      <button onClick={handleMusicSearch} disabled={isSearching} className="bg-cyan-700 hover:bg-cyan-600 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center">
-                         {isSearching ? <Loader2 size={16} className="animate-spin" /> : "Find"}
-                      </button>
+                      <div className="relative flex-1"><input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Enter song or artist..." className="w-full bg-slate-800/80 border border-slate-600 rounded-lg p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" /><Search size={16} className="absolute left-3 top-3.5 text-slate-500" /></div>
+                      <button onClick={handleMusicSearch} disabled={isSearching} className="bg-cyan-700 hover:bg-cyan-600 text-white px-4 rounded-lg font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center">{isSearching ? <Loader2 size={16} className="animate-spin" /> : "Find"}</button>
                    </div>
                    <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
-                      {searchResults.length === 0 && !isSearching && (
-                         <div className="text-center text-slate-500 py-8 text-sm italic">{searchQuery && searchResults.length === 0 ? "No results found." : "Search the world's music library."}</div>
-                      )}
-                      {isSearching && (
-                          <div className="space-y-3 opacity-50">
-                              {[1,2,3].map(i => (
-                                  <div key={i} className="flex gap-3 p-2 rounded-lg border border-slate-800">
-                                      <div className="w-16 h-16 bg-slate-800 rounded animate-pulse"></div>
-                                      <div className="flex-1 space-y-2 py-1"><div className="h-3 bg-slate-800 rounded w-3/4 animate-pulse"></div><div className="h-2 bg-slate-800 rounded w-1/2 animate-pulse"></div></div>
-                                  </div>
-                              ))}
-                          </div>
-                      )}
+                      {searchResults.length === 0 && !isSearching && <div className="text-center text-slate-500 py-8 text-sm italic">{searchQuery && searchResults.length === 0 ? "No results found." : "Search the world's music library."}</div>}
                       {searchResults.map((music) => (
                          <div key={music.id} onClick={() => handleSelectMusic(music)} className="flex gap-4 p-2 rounded-lg hover:bg-slate-800 cursor-pointer group transition-colors border border-transparent hover:border-cyan-900/50 items-center">
                             <img src={music.thumbnail} alt="" className="w-16 h-16 object-cover rounded shadow-md group-hover:shadow-cyan-500/20" />
-                            <div className="flex-1 overflow-hidden">
-                               <h4 className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300">{music.title}</h4>
-                               <p className="text-xs text-slate-500 mt-1 truncate">{music.artist} • {music.year}</p>
-                               <p className="text-[10px] text-slate-600 mt-0.5 truncate italic">{music.album}</p>
-                            </div>
+                            <div className="flex-1 overflow-hidden"><h4 className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300">{music.title}</h4><p className="text-xs text-slate-500 mt-1 truncate">{music.artist} • {music.year}</p><p className="text-[10px] text-slate-600 mt-0.5 truncate italic">{music.album}</p></div>
                             <button className="p-2 text-slate-600 group-hover:text-cyan-500"><Plus size={18}/></button>
                          </div>
                       ))}
@@ -403,9 +277,7 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
                     </div>
                 </div>
                 <div>
-                    <label className="text-[10px] text-cyan-600 uppercase font-mono font-bold flex items-center justify-between mb-1">
-                       <div className="flex items-center gap-1"><LinkIcon size={10} /> Link</div>
-                    </label>
+                    <label className="text-[10px] text-cyan-600 uppercase font-mono font-bold flex items-center justify-between mb-1"><div className="flex items-center gap-1"><LinkIcon size={10} /> Link</div></label>
                     <div className="relative">
                        <input type="text" value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className="w-full bg-slate-800/50 border border-slate-700 rounded p-2 text-xs text-blue-300 focus:border-cyan-500 outline-none pr-10" />
                        <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1 bg-cyan-900/50 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50">{isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}</button>
@@ -428,7 +300,11 @@ const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClo
 };
 
 // --- MAIN COMPONENT: AudioRoom ---
-const AudioRoom: React.FC = () => {
+interface AudioRoomProps {
+    initialMood?: string; // Nhận mood từ TechRoom
+}
+
+const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
@@ -444,28 +320,9 @@ const AudioRoom: React.FC = () => {
 
   // --- MASCOT STATES ---
   const [mascotPhase, setMascotPhase] = useState<'flying' | 'greeting' | 'returning' | 'idle'>('flying');
-
-  // --- INTRO ANIMATION SEQUENCE ---
-  useEffect(() => {
-    // Bắt đầu: Flying (2.5s) -> Greeting
-    const flyTimer = setTimeout(() => {
-      setMascotPhase('greeting');
-    }, 2500); // Khớp với thời gian animation CSS
-
-    return () => clearTimeout(flyTimer);
-  }, []);
-
-  const handleMascotClose = () => {
-    setMascotPhase('returning');
-    setTimeout(() => {
-      setMascotPhase('idle');
-    }, 1000); // Thời gian bay về
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => setBars(prev => prev.map(() => Math.random() * 60 + 10)), 150);
-    return () => clearInterval(interval);
-  }, []);
+  
+  // State cho bài hát đề xuất
+  const [recommendedTrack, setRecommendedTrack] = useState<AlbumItem | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -481,7 +338,46 @@ const AudioRoom: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // CRUD Functions
+  // --- LOGIC GREETING & RECOMMENDATION ---
+  useEffect(() => {
+    const flyTimer = setTimeout(() => {
+      setMascotPhase('greeting');
+      
+      // Nếu có mood 'healing' (từ TechRoom)
+      if (initialMood === 'healing') {
+          // Lấy tất cả bài hát từ các kệ để chọn ngẫu nhiên
+          const allTracks = shelves.flatMap(s => s.items);
+          if (allTracks.length > 0) {
+              const randomTrack = allTracks[Math.floor(Math.random() * allTracks.length)];
+              setRecommendedTrack(randomTrack);
+          } else {
+              // Fallback nếu chưa có bài nào trong DB
+              setRecommendedTrack({
+                  id: 999, title: "Weightless", artist: "Marconi Union", year: "2011",
+                  coverUrl: "https://i.ytimg.com/vi/UfcAVejslrU/maxresdefault.jpg",
+                  trackUrl: "https://www.youtube.com/watch?v=UfcAVejslrU",
+                  isFavorite: true, description: "A song to reduce anxiety."
+              });
+          }
+      }
+    }, 2500); 
+
+    return () => clearTimeout(flyTimer);
+  }, [initialMood, shelves]);
+
+  const handleMascotClose = () => {
+    setMascotPhase('returning');
+    setTimeout(() => {
+      setMascotPhase('idle');
+    }, 1000); 
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => setBars(prev => prev.map(() => Math.random() * 60 + 10)), 150);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ... (CRUD functions remain the same)
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -625,23 +521,52 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
-      {/* 2. Greeting Phase: Đứng giữa, hiện dialog STYLE WEASLEY */}
+      {/* 2. Greeting Phase: Đứng giữa, hiện dialog */}
       {mascotPhase === 'greeting' && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-500">
             <div className="relative flex flex-col items-center animate-zoom-in">
-                              <RavenclawTaurusMascot 
-                  greeting="Lựa chọn sáng suốt đó Muggle" 
+                
+               {/* LỜI THOẠI ĐƯỢC CÁ NHÂN HÓA DỰA TRÊN MOOD */}
+               <RavenclawTaurusMascot 
+                  greeting={
+                      initialMood === 'healing'
+                      ? "Muggle đây rồi, ta biết hôm nay hơi tệ với bồ. Nhưng xem ta tìm thấy thứ gì cho cô nè..."
+                      : "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!"
+                  }
                   variant="music" 
                   placement="top" 
                   forceOpen={true} 
-                  className="scale-150 origin-bottom"/>
-               <button 
-                  onClick={handleMascotClose}
-                  // BUTTON STYLE MỚI
-                  className="mt-8 px-6 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-amber-400/30"
-               >
-                  <Wand2 size={18} /> Lựa chọn sáng suốt đó Muggle!
-               </button>
+                  className="scale-150 origin-bottom"
+               />
+
+               {/* NẾU CÓ BÀI HÁT ĐỀ XUẤT (MODE CHỮA LÀNH) */}
+               {initialMood === 'healing' && recommendedTrack ? (
+                   <div className="mt-8 bg-[#1a1a1a] border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 shadow-[0_0_50px_rgba(251,191,36,0.2)] animate-appear-from-void max-w-sm">
+                       <img src={recommendedTrack.coverUrl || 'https://via.placeholder.com/150'} className="w-16 h-16 rounded object-cover border border-white/10" />
+                       <div className="text-left flex-1 min-w-0">
+                           <div className="text-[10px] text-amber-400 uppercase tracking-widest mb-1 font-bold">Gợi ý chữa lành</div>
+                           <div className="text-white font-bold truncate">{recommendedTrack.title}</div>
+                           <div className="text-white/60 text-xs truncate">{recommendedTrack.artist}</div>
+                       </div>
+                       <button 
+                           onClick={() => {
+                               setViewingItem(recommendedTrack); // Mở modal bài hát
+                               setMascotPhase('idle');
+                           }}
+                           className="p-3 bg-amber-600 hover:bg-amber-500 rounded-full text-white transition-all hover:scale-110 shadow-lg"
+                       >
+                           <Play size={20} fill="currentColor" />
+                       </button>
+                   </div>
+               ) : (
+                   /* NÚT MẶC ĐỊNH */
+                   <button 
+                      onClick={handleMascotClose}
+                      className="mt-8 px-6 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-amber-400/30"
+                   >
+                      <Wand2 size={18} /> Lựa chọn sáng suốt đó Muggle!
+                   </button>
+               )}
             </div>
          </div>
       )}
@@ -656,41 +581,29 @@ const AudioRoom: React.FC = () => {
          </div>
       )}
 
-      {/* 4. Idle Phase: Vị trí cũ (Chỉ hiện nếu không xem bài hát/kệ) */}
+      {/* 4. Idle Phase: Vị trí cũ */}
       {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && (
         <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
       )}
 
-      {/* --- QUICK NAVIGATION MENU (TOP RIGHT) --- */}
+      {/* ... (Các phần UI còn lại giữ nguyên như: Navigation Menu, Visualizer Bars, Shelves Grid, Modals) ... */}
+      
+      {/* QUICK NAVIGATION MENU */}
       <div className="fixed top-6 right-6 z-50 flex flex-col items-end">
-         <button 
-            onClick={() => setIsNavOpen(!isNavOpen)}
-            className={`p-3 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 ${isNavOpen ? 'bg-cyan-600 text-white rotate-90' : 'bg-slate-900/80 backdrop-blur-md text-cyan-500 border border-cyan-500/30 hover:bg-cyan-900/30'}`}
-         >
+         <button onClick={() => setIsNavOpen(!isNavOpen)} className={`p-3 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 ${isNavOpen ? 'bg-cyan-600 text-white rotate-90' : 'bg-slate-900/80 backdrop-blur-md text-cyan-500 border border-cyan-500/30 hover:bg-cyan-900/30'}`}>
             {isNavOpen ? <X size={20} /> : <List size={20} />}
          </button>
-         
          <div className={`mt-3 w-64 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/20 rounded-xl shadow-2xl overflow-hidden transition-all duration-300 origin-top-right ${isNavOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}>
             <div className="p-4 border-b border-cyan-900/50 bg-slate-950/50">
-               <h3 className="text-xs font-mono uppercase tracking-widest text-cyan-400 font-bold flex items-center gap-2">
-                  <MapPin size={12} /> Jump to Shelf
-               </h3>
+               <h3 className="text-xs font-mono uppercase tracking-widest text-cyan-400 font-bold flex items-center gap-2"><MapPin size={12} /> Jump to Shelf</h3>
             </div>
             <div className="max-h-[60vh] overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
-               {shelves.length === 0 ? (
-                  <div className="p-4 text-center text-slate-500 text-xs italic">No shelves yet.</div>
-               ) : (
-                  shelves.map((shelf) => (
-                     <button 
-                        key={shelf.id}
-                        onClick={() => scrollToShelf(shelf.id)}
-                        className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-cyan-900/20 transition-colors flex items-center justify-between group"
-                     >
-                        <span className="truncate pr-2 font-medium">{shelf.title}</span>
-                        <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-full group-hover:bg-cyan-900 group-hover:text-cyan-400 transition-colors">{shelf.items.length}</span>
-                     </button>
-                  ))
-               )}
+               {shelves.length === 0 ? <div className="p-4 text-center text-slate-500 text-xs italic">No shelves yet.</div> : shelves.map((shelf) => (
+                  <button key={shelf.id} onClick={() => scrollToShelf(shelf.id)} className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-cyan-900/20 transition-colors flex items-center justify-between group">
+                     <span className="truncate pr-2 font-medium">{shelf.title}</span>
+                     <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-full group-hover:bg-cyan-900 group-hover:text-cyan-400 transition-colors">{shelf.items.length}</span>
+                  </button>
+               ))}
             </div>
          </div>
       </div>
@@ -704,15 +617,13 @@ const AudioRoom: React.FC = () => {
             <div className="flex items-center justify-between p-6 border-b border-cyan-900/50 bg-slate-900/50">
                <div className="flex items-center gap-4">
                   <button onClick={() => setFocusedShelfId(null)} className="p-2 rounded-full hover:bg-slate-800 text-cyan-500 transition-colors flex items-center gap-2 group">
-                      <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform" /> 
-                      <span className="font-mono text-sm uppercase tracking-widest hidden md:inline">Thoát ra</span>
+                      <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform" /> <span className="font-mono text-sm uppercase tracking-widest hidden md:inline">Thoát ra</span>
                   </button>
                   <h2 className="text-3xl font-bold text-cyan-100 font-mono uppercase tracking-wider">{focusedShelf.title}</h2>
                   <span className="text-sm text-slate-500 bg-slate-800 px-2 py-1 rounded-full">{focusedShelf.items.length} đĩa</span>
                </div>
                <div className="text-slate-600 text-xs font-mono uppercase tracking-widest hidden md:block">Deep Dive Mode</div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
                <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-16 perspective-container max-w-7xl mx-auto">
                   {focusedShelf.items.map((item, index) => (
@@ -734,52 +645,29 @@ const AudioRoom: React.FC = () => {
              <h1 className="text-4xl font-bold text-cyan-100 tracking-[0.2em] uppercase font-mono">Quanh<span className="text-cyan-500">Zik</span></h1>
              <p className="text-cyan-400/50 text-xs tracking-widest mt-2">Quanh's Sonic Dimension</p>
           </div>
-
           <div className="w-full h-full overflow-y-auto overflow-x-hidden pb-32 px-4 scrollbar-hide perspective-container z-10">
              <div className="max-w-6xl mx-auto flex flex-col gap-24 pt-8 pb-24">
                 {isLoading ? (
-                   <div className="flex flex-col items-center justify-center h-64 gap-4">
-                      <Loader2 size={48} className="text-cyan-500 animate-spin" />
-                   </div>
+                   <div className="flex flex-col items-center justify-center h-64 gap-4"><Loader2 size={48} className="text-cyan-500 animate-spin" /></div>
                 ) : (
                    <>
                      {shelves.length === 0 && <div className="text-center text-slate-500 italic">Chưa có kệ đĩa nào. Bấm nút bên dưới để tạo nhé!</div>}
-
                      {shelves.map((shelf) => {
                         const totalItems = shelf.items.length;
                         const visibleItems = shelf.items.slice(0, PREVIEW_LIMIT);
                         const remainingCount = totalItems - PREVIEW_LIMIT;
-
                         return (
-                        <div 
-                           key={shelf.id} 
-                           ref={(el) => {
-                              if (el) shelfRefs.current.set(shelf.id, el);
-                              else shelfRefs.current.delete(shelf.id);
-                           }}
-                           className="relative group/shelf transition-all duration-500" 
-                           onDragOver={handleDragOver} 
-                           onDrop={(e) => handleDrop(e, shelf.id)}
-                        >
+                        <div key={shelf.id} ref={(el) => { if (el) shelfRefs.current.set(shelf.id, el); else shelfRefs.current.delete(shelf.id); }} className="relative group/shelf transition-all duration-500" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, shelf.id)}>
                            <div className="flex items-center justify-between mb-8 w-full max-w-2xl">
                               <div className="relative group/title cursor-pointer" onClick={() => setFocusedShelfId(shelf.id)}>
                                   <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-lg blur opacity-25 group-hover/title:opacity-75 transition duration-500"></div>
-                                  
                                   <div className="relative flex items-center gap-4 bg-slate-900/80 border border-cyan-500/30 px-6 py-3 rounded-lg backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.1)] group-hover/title:border-cyan-400/50 transition-all">
-                                      <div className="p-2 bg-cyan-950/50 rounded-md border border-cyan-500/20">
-                                         <Mic2 size={18} className="text-cyan-400" />
-                                      </div>
-                                      
+                                      <div className="p-2 bg-cyan-950/50 rounded-md border border-cyan-500/20"><Mic2 size={18} className="text-cyan-400" /></div>
                                       {editingShelfId === shelf.id ? (
-                                         <input autoFocus className="bg-transparent border-b border-cyan-500 text-cyan-100 text-lg font-mono uppercase focus:outline-none w-full min-w-[200px]"
-                                            value={tempShelfTitle} onChange={(e) => setTempShelfTitle(e.target.value)} onBlur={() => handleSaveShelfTitle(shelf.id)} onKeyDown={(e) => e.key === 'Enter' && handleSaveShelfTitle(shelf.id)} />
+                                         <input autoFocus className="bg-transparent border-b border-cyan-500 text-cyan-100 text-lg font-mono uppercase focus:outline-none w-full min-w-[200px]" value={tempShelfTitle} onChange={(e) => setTempShelfTitle(e.target.value)} onBlur={() => handleSaveShelfTitle(shelf.id)} onKeyDown={(e) => e.key === 'Enter' && handleSaveShelfTitle(shelf.id)} />
                                       ) : (
-                                         <div className="flex flex-col">
-                                            <h2 className="text-xl text-cyan-100 font-bold font-mono uppercase tracking-widest">{shelf.title}</h2>
-                                            <span className="text-[10px] text-cyan-500/60 font-mono tracking-widest">{totalItems} RECORDS DETECTED</span>
-                                         </div>
+                                         <div className="flex flex-col"><h2 className="text-xl text-cyan-100 font-bold font-mono uppercase tracking-widest">{shelf.title}</h2><span className="text-[10px] text-cyan-500/60 font-mono tracking-widest">{totalItems} RECORDS DETECTED</span></div>
                                       )}
-
                                       {editingShelfId !== shelf.id && (
                                           <div className="ml-4 flex items-center gap-2 opacity-0 group-hover/title:opacity-100 transition-opacity border-l border-slate-700 pl-4">
                                              <button onClick={(e) => { e.stopPropagation(); setEditingShelfId(shelf.id); setTempShelfTitle(shelf.title); }} className="p-1.5 hover:bg-cyan-900/30 rounded text-slate-400 hover:text-cyan-400 transition-colors"><Edit3 size={14}/></button>
@@ -788,16 +676,11 @@ const AudioRoom: React.FC = () => {
                                       )}
                                   </div>
                               </div>
-                              
                               {totalItems > PREVIEW_LIMIT && (
-                                  <button onClick={() => setFocusedShelfId(shelf.id)} className="flex items-center gap-2 text-xs font-mono uppercase text-cyan-600 hover:text-cyan-300 transition-colors bg-cyan-950/20 px-4 py-2 rounded-full border border-cyan-900/50 hover:border-cyan-500 group">
-                                    Expand <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform"/>
-                                  </button>
+                                  <button onClick={() => setFocusedShelfId(shelf.id)} className="flex items-center gap-2 text-xs font-mono uppercase text-cyan-600 hover:text-cyan-300 transition-colors bg-cyan-950/20 px-4 py-2 rounded-full border border-cyan-900/50 hover:border-cyan-500 group">Expand <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform"/></button>
                               )}
                            </div>
-
                            <div className="absolute top-32 -left-[5%] -right-[5%] h-4 bg-cyan-900/20 border-t border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)] transform -rotate-x-6 translate-z-[-20px]"></div>
-                           
                            <div className="flex flex-wrap items-end gap-x-6 gap-y-16 pl-4 relative z-10">
                               {visibleItems.map((item, index) => (
                                  <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item, shelf.id, index)} onDragEnd={handleDragEnd} onDrop={(e) => { e.stopPropagation(); handleDrop(e, shelf.id, index); }}>
@@ -805,7 +688,6 @@ const AudioRoom: React.FC = () => {
                                  </div>
                               ))}
                               <AddNewAlbum onClick={() => handleAddNewItem(shelf.id)} />
-                              
                               {remainingCount > 0 && (
                                   <div onClick={() => setFocusedShelfId(shelf.id)} className="mb-12 w-32 h-32 flex flex-col items-center justify-center border border-dashed border-slate-700/50 rounded bg-slate-900/20 hover:bg-cyan-900/10 hover:border-cyan-500/30 transition-all cursor-pointer group">
                                       <Grid className="text-slate-600 group-hover:text-cyan-500 transition-colors" />
@@ -815,11 +697,8 @@ const AudioRoom: React.FC = () => {
                            </div>
                         </div>
                      )})}
-
                      <div className="flex justify-center mt-12">
-                        <button onClick={handleAddShelf} className="px-8 py-4 rounded-full border border-dashed border-cyan-900 text-cyan-700 hover:text-cyan-400 hover:border-cyan-500 hover:bg-cyan-900/10 transition-all uppercase font-mono text-xs tracking-widest flex items-center gap-2">
-                           <Plus size={16} /> Create New Section
-                        </button>
+                        <button onClick={handleAddShelf} className="px-8 py-4 rounded-full border border-dashed border-cyan-900 text-cyan-700 hover:text-cyan-400 hover:border-cyan-500 hover:bg-cyan-900/10 transition-all uppercase font-mono text-xs tracking-widest flex items-center gap-2"><Plus size={16} /> Create New Section</button>
                      </div>
                    </>
                 )}
@@ -835,3 +714,311 @@ const AudioRoom: React.FC = () => {
 };
 
 export default AudioRoom;
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Send, Wind, Music } from 'lucide-react';
+
+// --- CẤU HÌNH CẢM XÚC ---
+const EMOTIONS = [
+  { id: 'joy', label: 'Niềm Vui', color: '#FFD700', type: 'good' },      
+  { id: 'sad', label: 'Nỗi Buồn', color: '#3498DB', type: 'heavy' },     
+  { id: 'anger', label: 'Giận Dữ', color: '#E74C3C', type: 'heavy' },    
+  { id: 'heal', label: 'Chữa Lành', color: '#2ECC71', type: 'good' },    
+  { id: 'dream', label: 'Giấc Mơ', color: '#9B59B6', type: 'good' },     
+  { id: 'empty', label: 'Trống Rỗng', color: '#BDC3C7', type: 'heavy' }  
+];
+
+// --- TYPES ---
+interface Projectile {
+  x: number; y: number; targetX: number; targetY: number; color: string; speed: number; progress: number;
+}
+interface Bloom {
+  id: number; x: number; y: number; color: string; size: number; maxSize: number; phase: number; vx: number; vy: number; isFlyingOff: boolean;
+}
+interface Branch {
+  x: number; y: number; endX: number; endY: number; depth: number; width: number;
+}
+
+// Thêm prop onNavigate để chuyển phòng
+interface TechRoomProps {
+    onNavigate: (room: 'tech' | 'audio', params?: any) => void;
+}
+
+const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [vitalityUI, setVitalityUI] = useState(10);
+  const [currentMoodId, setCurrentMoodId] = useState('joy');
+  const [isWindBlowing, setIsWindBlowing] = useState(false);
+
+  // --- LOGIC PHÁT HIỆN TÂM TRẠNG ---
+  const [heavyEmotionCount, setHeavyEmotionCount] = useState(0);
+  const [showMusicPrompt, setShowMusicPrompt] = useState(false);
+
+  // GAME STATE
+  const gameState = useRef({
+    selectedMood: EMOTIONS[0],
+    vitality: 10,
+    time: 0,
+    width: 0,
+    height: 0,
+    trunkR: 40, trunkG: 40, trunkB: 40,
+    branches: [] as Branch[],
+    projectiles: [] as Projectile[], 
+    blooms: [] as Bloom[],           
+    windForce: 0 
+  });
+
+  // --- GENERATE TREE ---
+  const generateTreeStructure = (w: number, h: number) => {
+    const branches: Branch[] = [];
+    const grow = (x: number, y: number, len: number, angle: number, wid: number, depth: number) => {
+      const endX = x + len * Math.cos(angle);
+      const endY = y + len * Math.sin(angle);
+      branches.push({ x, y, endX, endY, angle, depth, width: wid } as any);
+      if (len < 10 || depth > 10) return;
+      grow(endX, endY, len * 0.75, angle - 0.3 - Math.random() * 0.2, wid * 0.7, depth + 1);
+      grow(endX, endY, len * 0.75, angle + 0.3 + Math.random() * 0.2, wid * 0.7, depth + 1);
+    };
+    grow(w / 2, h, h * 0.18, -Math.PI / 2, 16, 0);
+    return branches;
+  };
+
+  // --- ANIMATION LOOP ---
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gameState.current.width = window.innerWidth;
+      gameState.current.height = window.innerHeight;
+      gameState.current.branches = generateTreeStructure(window.innerWidth, window.innerHeight);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    let animationId: number;
+    const render = () => {
+      const state = gameState.current;
+      state.time += 0.03;
+
+      // Clear & Background
+      const bgLevel = 5 + (state.vitality * 0.2); 
+      ctx.fillStyle = `rgb(${bgLevel}, ${bgLevel}, ${bgLevel + 5})`;
+      ctx.fillRect(0, 0, state.width, state.height);
+
+      // Draw Tree
+      const breath = Math.sin(state.time) * 0.5 + 0.5;
+      const trunkColor = `rgb(${Math.floor(state.trunkR)}, ${Math.floor(state.trunkG)}, ${Math.floor(state.trunkB)})`;
+      ctx.lineCap = "round";
+      state.branches.forEach(b => {
+        ctx.beginPath();
+        const windSway = state.windForce * (b.depth * 0.05) * Math.sin(state.time * 5);
+        const naturalSway = Math.sin(state.time + b.depth) * (b.depth * 0.5);
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.endX + naturalSway + windSway, b.endY);
+        ctx.lineWidth = b.width;
+        ctx.strokeStyle = trunkColor;
+        if (state.vitality > 40) {
+          ctx.shadowBlur = (state.vitality - 40) * 0.2 * breath;
+          ctx.shadowColor = trunkColor;
+        } else ctx.shadowBlur = 0;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      });
+
+      // Draw Projectiles
+      for (let i = state.projectiles.length - 1; i >= 0; i--) {
+          const p = state.projectiles[i];
+          p.progress += p.speed;
+          const cx = (p.x + p.targetX) / 2 + Math.sin(state.time * 5) * 50; 
+          const cy = Math.min(p.y, p.targetY) - 100;
+          const t = p.progress; const invT = 1 - t;
+          const currX = invT * invT * p.x + 2 * invT * t * cx + t * t * p.targetX;
+          const currY = invT * invT * p.y + 2 * invT * t * cy + t * t * p.targetY;
+
+          ctx.fillStyle = p.color; ctx.shadowBlur = 15; ctx.shadowColor = p.color;
+          ctx.beginPath(); ctx.arc(currX, currY, 4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+          if (p.progress >= 1) {
+              state.blooms.push({
+                  id: Date.now() + i, x: p.targetX, y: p.targetY, color: p.color, size: 0, maxSize: Math.random() * 5 + 3,
+                  phase: Math.random() * Math.PI, vx: 0, vy: 0, isFlyingOff: false
+              });
+              state.projectiles.splice(i, 1);
+          }
+      }
+
+      // Draw Blooms
+      for (let i = state.blooms.length - 1; i >= 0; i--) {
+        const b = state.blooms[i];
+        if (state.windForce > 0) {
+            b.isFlyingOff = true;
+            b.vx += state.windForce * 0.5 + (Math.random()-0.5);
+            b.vy += (Math.random() - 0.2) * 2;
+        }
+        if (b.isFlyingOff) {
+            b.x += b.vx; b.y += b.vy; b.vx *= 0.98; b.size *= 0.99;
+            if (b.x > state.width || b.x < 0 || b.y < 0 || b.size < 0.5) { state.blooms.splice(i, 1); continue; }
+        } else {
+            if (b.size < b.maxSize) b.size += 0.1;
+            const stickSway = Math.sin(state.time * 5) * state.windForce * 10;
+            const bloomBreath = Math.sin(state.time * 3 + b.phase) * 0.3 + 0.8;
+            ctx.fillStyle = b.color;
+            const glow = state.vitality > 50 ? 20 : 8;
+            ctx.shadowBlur = glow * bloomBreath; ctx.shadowColor = b.color;
+            ctx.beginPath(); ctx.arc(b.x + stickSway, b.y, b.size * bloomBreath, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        }
+      }
+      
+      if (!isWindBlowing && state.windForce > 0) {
+          state.windForce -= 0.01; if (state.windForce < 0) state.windForce = 0;
+      }
+      animationId = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationId);
+    };
+  }, [isWindBlowing]);
+
+  // --- ACTIONS ---
+
+  const sendToVoid = useCallback(() => {
+    const state = gameState.current;
+    const mood = state.selectedMood;
+    
+    // --- LOGIC GỢI Ý NHẠC (MỚI) ---
+    if (mood.type === 'heavy') {
+        const newCount = heavyEmotionCount + 1;
+        setHeavyEmotionCount(newCount);
+        // Nếu tích tụ đủ 3 lần tiêu cực -> Hiện gợi ý
+        if (newCount >= 3) {
+            setTimeout(() => setShowMusicPrompt(true), 1000); // Hiện sau 1s
+        }
+    } else {
+        setHeavyEmotionCount(0); // Reset nếu có cảm xúc tốt
+    }
+
+    // Cập nhật cây như cũ
+    if (mood.type === 'good') {
+        state.vitality = Math.min(100, state.vitality + 5);
+        state.trunkR = Math.min(200, state.trunkR + 5);
+        state.trunkG = Math.min(180, state.trunkG + 4);
+    } else {
+        state.vitality = Math.min(100, state.vitality + 1);
+        const hexToRgb = (hex: string) => {
+            const bigint = parseInt(hex.slice(1), 16);
+            return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+        };
+        const c = hexToRgb(mood.color);
+        state.trunkR = state.trunkR * 0.95 + c.r * 0.05;
+        state.trunkG = state.trunkG * 0.95 + c.g * 0.05;
+        state.trunkB = state.trunkB * 0.95 + c.b * 0.05;
+    }
+    setVitalityUI(Math.floor(state.vitality));
+
+    const tips = state.branches.filter(b => b.depth > 6);
+    let targetX = state.width / 2; let targetY = state.height / 2;
+    if (tips.length > 0) {
+        const targetBranch = tips[Math.floor(Math.random() * tips.length)];
+        targetX = targetBranch.endX + (Math.random() - 0.5) * 20;
+        targetY = targetBranch.endY + (Math.random() - 0.5) * 20;
+    }
+
+    state.projectiles.push({
+        x: state.width / 2, y: state.height - 80, targetX: targetX, targetY: targetY,
+        color: mood.color, speed: 0.01 + Math.random() * 0.01, progress: 0
+    });
+    setInputValue('');
+  }, [heavyEmotionCount]);
+
+  const triggerWind = () => {
+      setIsWindBlowing(true);
+      gameState.current.windForce = 2;
+      gameState.current.vitality = 10; setVitalityUI(10);
+      gameState.current.trunkR = 40; gameState.current.trunkG = 40; gameState.current.trunkB = 40;
+      setHeavyEmotionCount(0); // Reset cảm xúc
+      setTimeout(() => setIsWindBlowing(false), 3000);
+  };
+
+  const handleSelectMood = (mood: typeof EMOTIONS[0]) => {
+    setCurrentMoodId(mood.id);
+    gameState.current.selectedMood = mood;
+  };
+
+  return (
+    <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');`}</style>
+
+      {/* --- POPUP GỢI Ý NGHE NHẠC (MỚI) --- */}
+      {showMusicPrompt && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4">
+            <div className="bg-[#151515] border border-white/10 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_50px_rgba(255,255,255,0.05)] transform scale-100 transition-all">
+                <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Music size={24} className="text-white/70" />
+                </div>
+                <h3 className="text-2xl font-serif text-white/90 mb-3">Ngày hôm nay hơi nặng nề nhỉ?</h3>
+                <p className="text-white/50 text-sm mb-8 font-light leading-relaxed">
+                    Có vẻ bạn đang mang nhiều tâm tư. Bạn có muốn nghe một bản nhạc để xoa dịu không?
+                </p>
+                <div className="flex gap-4 justify-center">
+                    <button 
+                        onClick={() => { setShowMusicPrompt(false); setHeavyEmotionCount(0); }}
+                        className="px-6 py-3 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-colors text-xs uppercase tracking-widest font-bold"
+                    >
+                        Mình ổn
+                    </button>
+                    <button 
+                        onClick={() => onNavigate('audio', { mood: 'healing' })}
+                        className="px-8 py-3 bg-white text-black rounded-full font-bold text-xs uppercase tracking-widest hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all transform hover:scale-105"
+                    >
+                        Nghe nhạc
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* CANVAS */}
+      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none" />
+
+      {/* HEADER INFO */}
+      <div className="absolute top-6 right-6 text-right z-10 select-none pointer-events-none">
+        <div className="font-serif text-white/50 text-sm">Sức Sống</div>
+        <div className="w-32 h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
+          <div className="h-full transition-all duration-700 ease-out" style={{ width: `${vitalityUI}%`, background: vitalityUI > 60 ? '#FFD700' : '#4facfe' }}></div>
+        </div>
+      </div>
+
+      {/* WIND BUTTON */}
+      <button onClick={triggerWind} title="Thổi bay ký ức" className={`absolute top-6 left-16 md:left-20 p-3 rounded-full border border-white/10 backdrop-blur-md transition-all duration-500 z-50 hover:bg-white/10 group ${isWindBlowing ? 'rotate-180 bg-white/20' : ''}`}>
+        <Wind className={`w-5 h-5 text-white/60 group-hover:text-white ${isWindBlowing ? 'animate-pulse' : ''}`} />
+      </button>
+
+      {/* CONTROLS */}
+      <div className="absolute bottom-0 left-0 w-full pb-8 pt-20 px-4 flex flex-col items-center justify-end z-50 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
+        <div className="w-full max-w-[500px] flex flex-col items-center gap-5 pointer-events-auto">
+            <div className="flex justify-center gap-3 p-2">
+                {EMOTIONS.map((mood) => (
+                    <button key={mood.id} onClick={() => handleSelectMood(mood)} className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${currentMoodId === mood.id ? 'scale-125 border-white shadow-[0_0_10px_currentColor]' : 'border-transparent opacity-50 hover:opacity-100 hover:scale-110'}`} style={{ backgroundColor: mood.color }} title={mood.label} />
+                ))}
+            </div>
+            <div className="w-full relative flex items-center gap-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl focus-within:bg-white/10 focus-within:border-white/30">
+                <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendToVoid()} placeholder="Gửi tâm tư vào cây..." className="flex-1 bg-transparent border-none text-white/90 font-serif text-lg px-4 focus:outline-none placeholder:text-white/30" />
+                <button onClick={sendToVoid} disabled={isWindBlowing} className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white/80 transition-all hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50">
+                  <Send size={20} />
+                </button>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TechRoom;
