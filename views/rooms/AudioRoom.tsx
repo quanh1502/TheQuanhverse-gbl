@@ -4,7 +4,6 @@ import {
   Link as LinkIcon, Play, Calendar, Wand2, Loader2,
   ChevronRight, ArrowLeft, Grid, Search, Disc, Check, MapPin, List
 } from 'lucide-react';
-
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
@@ -15,24 +14,19 @@ import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'fireb
 
 // --- STYLE ANIMATION (CSS IN JS) ---
 const mascotStyles = `
-  /* 1. Animation bay lượn */
   @keyframes flyInCircle {
     0% { bottom: 20px; left: 20px; transform: scale(0.5) rotate(0deg); opacity: 0; }
     30% { bottom: 60%; left: 20%; transform: scale(0.8) rotate(15deg); opacity: 1; }
     60% { bottom: 80%; left: 80%; transform: scale(1) rotate(-15deg); }
     100% { bottom: 50%; left: 50%; transform: translate(-50%, 50%) scale(1.5) rotate(0deg); }
   }
-
-  /* 2. Animation hạt lấp lánh */
   @keyframes sparkleDrop {
     0% { transform: scale(1); opacity: 1; }
     100% { transform: scale(0) translate(0, 30px); opacity: 0; }
   }
-
   .animate-mascot-intro {
     animation: flyInCircle 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
-
   .sparkle-trail {
     position: fixed; border-radius: 50%;
     background: radial-gradient(circle, #fff 10%, #fbbf24 60%, transparent 100%);
@@ -54,7 +48,7 @@ const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/ma
 
 const searchMusicDatabase = async (query: string) => {
   try {
-    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=12`);
+    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
     if (!response.ok) throw new Error("iTunes API Error");
     const data = await response.json();
     return data.results && data.results.length > 0 ? data.results.map((item: any) => ({
@@ -64,11 +58,39 @@ const searchMusicDatabase = async (query: string) => {
       album: item.collectionName,
       year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
       thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName)}`
+      // Tạo link tìm kiếm Youtube thông minh
+      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName + " lyrics")}`
     })) : [];
   } catch (error) {
     console.error("Music Search Error:", error);
     return [];
+  }
+};
+
+// --- HELPERS: MOOD LOGIC ---
+// Từ khóa tìm kiếm dựa trên cảm xúc (Mô phỏng phân tích lời bài hát/giai điệu)
+const getMoodSearchQuery = (moodId: string) => {
+  switch (moodId) {
+    case 'joy': return ['happy upbeat pop', 'summer vibes', 'energetic dance', 'feel good songs'];
+    case 'sad': return ['sad piano ballad', 'melancholic acoustic', 'heartbreak songs', 'slow sad songs'];
+    case 'anger': return ['heavy metal rock', 'intense workout music', 'screaming vocals', 'aggressive rap'];
+    case 'empty': return ['lofi hip hop', 'ambient space music', 'post rock instrumental', 'deep focus music'];
+    case 'dream': return ['dream pop', 'ethereal shoegaze', 'psychedelic rock', 'ambient electronic'];
+    case 'heal': return ['healing frequencies', 'nature sounds music', 'meditation piano', 'calm acoustic'];
+    default: return ['relaxing music'];
+  }
+};
+
+// Lời thoại Mascot tương ứng
+const getMascotMessage = (moodId: string) => {
+  switch (moodId) {
+    case 'joy': return "Năng lượng tuyệt vời! Ta tìm thấy thứ này để bồ 'quẩy' nè!";
+    case 'sad': return "Ta biết bồ đang buồn. Hy vọng giai điệu này sẽ là cái ôm ấm áp.";
+    case 'anger': return "Woah, nóng nảy thế! Xả hết ra với bài này đi!";
+    case 'empty': return "Đôi khi ta cần khoảng lặng. Thử bài này xem, nó như trôi giữa vũ trụ vậy.";
+    case 'dream': return "Muggle đang mơ mộng à? Bài này sẽ đưa bồ đi xa hơn nữa.";
+    case 'heal': return "Hít thở sâu nào... Giai điệu chữa lành dành riêng cho bồ đây.";
+    default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
 
@@ -160,30 +182,48 @@ const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
     </div>
 );
 
+// --- DETAIL MODAL (NÂNG CẤP ĐỂ HIỂN THỊ BÀI EXTERNAL) ---
 const DetailModal = ({ item, onClose }: { item: AlbumItem, onClose: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
         <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
-        {item.isFavorite && (
-           <div className="absolute top-24 md:top-1/3 right-4 md:right-24 z-[110]">
-              <RavenclawTaurusMascot greeting="Bài này Quanh hay nghe lắm nè" forceOpen={true} variant="music" placement="left" className="scale-75 origin-right" style={{ animationDuration: '6s' }} dialogClassName="w-40 text-center rounded-xl"/>
-           </div>
-        )}
         <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.15)] overflow-hidden animate-zoom-in flex flex-col md:flex-row z-[105]">
             <div className="w-full md:w-1/2 aspect-square md:aspect-auto relative bg-black">
-                {item.coverUrl ? <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center"><Music size={64} className="text-cyan-500/30" /></div>}
+                {/* Hiển thị ảnh bìa chất lượng cao nếu có */}
+                {item.coverUrl ? <img src={item.coverUrl.replace('100x100', '600x600')} alt={item.title} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center"><Music size={64} className="text-cyan-500/30" /></div>}
                 <button onClick={onClose} className="absolute top-4 right-4 md:hidden text-white bg-black/50 p-2 rounded-full backdrop-blur-sm"><X size={20} /></button>
             </div>
             <div className="flex-1 p-8 flex flex-col justify-center relative">
                 <button onClick={onClose} className="absolute top-4 right-4 hidden md:block text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
-                <div className="mb-6"><h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2><p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p></div>
+                
+                {/* Tag thông minh cho bài hát đề xuất */}
+                {item.description && item.description.includes("Gợi ý") && (
+                    <div className="mb-4">
+                        <span className="text-[10px] font-mono uppercase tracking-widest bg-amber-900/30 text-amber-400 px-2 py-1 rounded border border-amber-500/20 animate-pulse">
+                            {item.description}
+                        </span>
+                    </div>
+                )}
+
+                <div className="mb-6">
+                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">{item.title}</h2>
+                    <p className="text-xl text-cyan-400 font-serif italic">{item.artist}</p>
+                </div>
+                
                 <div className="flex items-center gap-4 text-sm text-slate-400 font-mono mb-6 border-b border-slate-800 pb-6">
                     <span className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded"><Calendar size={14}/> {item.year || "Unknown"}</span>
                     {item.trackUrl ? <a href={item.trackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-400 hover:underline"><LinkIcon size={14}/> Link</a> : <span className="text-slate-600">No Link</span>}
                     {item.isFavorite && <span className="flex items-center gap-1 text-yellow-400 font-bold border border-yellow-400/30 px-2 py-0.5 rounded-full bg-yellow-400/10">★ Favorite</span>}
                 </div>
-                <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40"><p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p></div>
+                
+                <div className="mb-8 flex-1 overflow-y-auto scrollbar-hide max-h-40">
+                    <p className="text-slate-300 leading-relaxed text-sm">{item.description || "No description available."}</p>
+                </div>
+                
                 {item.trackUrl && (
-                    <a href={item.trackUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all shadow-[0_4px_20px_rgba(8,145,178,0.4)]"><div className="p-1 bg-white rounded-full text-cyan-600"><Play size={14} fill="currentColor" /></div> Listen Now</a>
+                    <a href={item.trackUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all shadow-[0_4px_20px_rgba(8,145,178,0.4)] hover:scale-105">
+                        <div className="p-1 bg-white rounded-full text-cyan-600"><Play size={14} fill="currentColor" /></div> 
+                        {item.description?.includes("Gợi ý") ? "Tìm nghe trên Youtube" : "Listen Now"}
+                    </a>
                 )}
             </div>
         </div>
@@ -325,6 +365,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
   // State cho bài hát đề xuất
   const [recommendedTrack, setRecommendedTrack] = useState<AlbumItem | null>(null);
 
+  // Load shelves từ Firebase
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = onSnapshot(collection(db, "audio-shelves"), 
@@ -339,32 +380,39 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
     return () => unsubscribe();
   }, []);
 
-  // --- LOGIC GREETING & RECOMMENDATION ---
+  // --- LOGIC GREETING & RECOMMENDATION (EXTERNAL) ---
   useEffect(() => {
-    const flyTimer = setTimeout(() => {
+    // Chờ mascot bay vào (2.5s) sau đó thực hiện tìm kiếm
+    const flyTimer = setTimeout(async () => {
       setMascotPhase('greeting');
       
-      // Nếu có mood 'healing' (từ TechRoom)
-      if (initialMood === 'healing') {
-          // Lấy tất cả bài hát từ các kệ để chọn ngẫu nhiên
-          const allTracks = shelves.flatMap(s => s.items);
-          if (allTracks.length > 0) {
-              const randomTrack = allTracks[Math.floor(Math.random() * allTracks.length)];
-              setRecommendedTrack(randomTrack);
-          } else {
-              // Fallback nếu chưa có bài nào trong DB
+      if (initialMood) {
+          // 1. Lấy từ khóa ngẫu nhiên dựa trên mood
+          const queries = getMoodSearchQuery(initialMood);
+          const randomQuery = queries[Math.floor(Math.random() * queries.length)];
+          
+          // 2. Gọi API iTunes để tìm bài hát chưa có trong phòng
+          const results = await searchMusicDatabase(randomQuery);
+          
+          if (results.length > 0) {
+              // 3. Chọn 1 bài ngẫu nhiên từ kết quả
+              const track = results[Math.floor(Math.random() * results.length)];
+              
+              // 4. Tạo một object AlbumItem "ảo" để hiển thị
               setRecommendedTrack({
-                  id: 999, title: "Weightless", artist: "Marconi Union", year: "2011",
-                  coverUrl: "https://i.ytimg.com/vi/UfcAVejslrU/maxresdefault.jpg",
-                  trackUrl: "https://www.youtube.com/watch?v=UfcAVejslrU",
-                  isFavorite: true, description: "A song to reduce anxiety."
+                  ...track,
+                  id: Date.now(), // ID tạm
+                  isFavorite: false,
+                  description: `Gợi ý từ Vũ Trụ vì bạn đang cảm thấy: ${initialMood.toUpperCase()}`,
+                  // trackUrl đã được convert thành Youtube Search link ở hàm searchMusicDatabase
+                  trackUrl: track.youtubeSearchLink
               });
           }
       }
     }, 2500); 
 
     return () => clearTimeout(flyTimer);
-  }, [initialMood, shelves]);
+  }, [initialMood]);
 
   const handleMascotClose = () => {
     setMascotPhase('returning');
@@ -378,7 +426,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // ... (CRUD functions remain the same)
+  // ... (Các hàm CRUD giữ nguyên) ...
   const handleAddShelf = async () => {
     try {
       const newId = Date.now();
@@ -530,8 +578,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
                {/* LỜI THOẠI ĐƯỢC CÁ NHÂN HÓA DỰA TRÊN MOOD */}
                <RavenclawTaurusMascot 
                   greeting={
-                      initialMood === 'healing'
-                      ? "Muggle đây rồi, ta biết hôm nay hơi tệ với bồ. Nhưng xem ta tìm thấy thứ gì cho cô nè..."
+                      initialMood 
+                      ? getMascotMessage(initialMood) 
                       : "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!"
                   }
                   variant="music" 
@@ -540,32 +588,32 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
                   className="scale-150 origin-bottom"
                />
 
-               {/* NẾU CÓ BÀI HÁT ĐỀ XUẤT (MODE CHỮA LÀNH) */}
-               {initialMood === 'healing' && recommendedTrack ? (
-                   <div className="mt-8 bg-[#1a1a1a] border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 shadow-[0_0_50px_rgba(251,191,36,0.2)] animate-appear-from-void max-w-sm">
+               {/* NẾU CÓ BÀI HÁT ĐỀ XUẤT TỪ ITUNES/EXTERNAL */}
+               {initialMood && recommendedTrack ? (
+                   <div 
+                       className="mt-8 bg-[#1a1a1a] border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 shadow-[0_0_50px_rgba(251,191,36,0.2)] animate-appear-from-void max-w-sm cursor-pointer hover:bg-[#252525] transition-colors transform hover:scale-105"
+                       onClick={() => {
+                           setViewingItem(recommendedTrack); // Mở modal bài hát
+                           setMascotPhase('idle');
+                       }}
+                   >
                        <img src={recommendedTrack.coverUrl || 'https://via.placeholder.com/150'} className="w-16 h-16 rounded object-cover border border-white/10" />
                        <div className="text-left flex-1 min-w-0">
-                           <div className="text-[10px] text-amber-400 uppercase tracking-widest mb-1 font-bold">Gợi ý chữa lành</div>
+                           <div className="text-[10px] text-amber-400 uppercase tracking-widest mb-1 font-bold">Gợi ý từ Vũ Trụ</div>
                            <div className="text-white font-bold truncate">{recommendedTrack.title}</div>
                            <div className="text-white/60 text-xs truncate">{recommendedTrack.artist}</div>
                        </div>
-                       <button 
-                           onClick={() => {
-                               setViewingItem(recommendedTrack); // Mở modal bài hát
-                               setMascotPhase('idle');
-                           }}
-                           className="p-3 bg-amber-600 hover:bg-amber-500 rounded-full text-white transition-all hover:scale-110 shadow-lg"
-                       >
+                       <div className="p-3 bg-amber-600 hover:bg-amber-500 rounded-full text-white shadow-lg">
                            <Play size={20} fill="currentColor" />
-                       </button>
+                       </div>
                    </div>
                ) : (
-                   /* NÚT MẶC ĐỊNH */
+                   /* NÚT MẶC ĐỊNH KHI KHÔNG CÓ MOOD */
                    <button 
                       onClick={handleMascotClose}
-                      className="mt-8 px-6 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-amber-400/30"
+                      className="mt-8 px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-full font-bold shadow-[0_0_20px_rgba(8,145,178,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-cyan-400/30"
                    >
-                      <Wand2 size={18} /> Lựa chọn sáng suốt đó Muggle!
+                      <Check size={18} /> Bắt đầu thôi!
                    </button>
                )}
             </div>
@@ -587,9 +635,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood }) => {
         <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />
       )}
 
-      {/* ... (Các phần UI còn lại giữ nguyên như: Navigation Menu, Visualizer Bars, Shelves Grid, Modals) ... */}
-      
-      {/* QUICK NAVIGATION MENU */}
+      {/* --- QUICK NAVIGATION MENU --- */}
       <div className="fixed top-6 right-6 z-50 flex flex-col items-end">
          <button onClick={() => setIsNavOpen(!isNavOpen)} className={`p-3 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 ${isNavOpen ? 'bg-cyan-600 text-white rotate-90' : 'bg-slate-900/80 backdrop-blur-md text-cyan-500 border border-cyan-500/30 hover:bg-cyan-900/30'}`}>
             {isNavOpen ? <X size={20} /> : <List size={20} />}
