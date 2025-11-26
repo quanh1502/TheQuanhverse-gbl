@@ -5,13 +5,25 @@ import RoomView from './views/RoomView';
 import { RoomType } from './types';
 import { DataProvider } from './contexts/DataContext';
 import SyncBoard from './components/SyncBoard';
+
 const App: React.FC = () => {
   const [currentRoom, setCurrentRoom] = useState<RoomType>(RoomType.VOID);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  
+  // STATE MỚI: Lưu trữ dữ liệu truyền giữa các phòng (VD: { mood: 'healing' })
+  const [roomParams, setRoomParams] = useState<any>(null);
 
-  const handleEnterRoom = (room: RoomType) => {
+  // CẬP NHẬT: Hàm này giờ nhận thêm params tùy chọn
+  const handleEnterRoom = (room: RoomType, params?: any) => {
     if (isTransitioning) return;
     setIsTransitioning(true);
+    
+    // Lưu params nếu có, hoặc reset nếu không
+    if (params) {
+        setRoomParams(params);
+    } else {
+        setRoomParams(null);
+    }
     
     // Wait for the "fly-through" animation to complete before switching components
     setTimeout(() => {
@@ -20,10 +32,10 @@ const App: React.FC = () => {
     }, 800); // 800ms matches the CSS animation duration
   };
   
-
   const handleBackToVoid = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
+    setRoomParams(null); // Xóa params khi quay về sảnh
     
     // Wait for the "fade-away" animation to complete
     setTimeout(() => {
@@ -50,6 +62,9 @@ const App: React.FC = () => {
               room={currentRoom} 
               onBack={handleBackToVoid} 
               isExiting={isTransitioning}
+              // TRUYỀN PROPS MỚI XUỐNG ROOMVIEW
+              roomParams={roomParams}       // Để AudioRoom nhận mood
+              onNavigate={handleEnterRoom}  // Để TechRoom gọi chuyển phòng
             />
           )}
         </main>
@@ -59,10 +74,7 @@ const App: React.FC = () => {
       </div>
       <SyncBoard />
     </DataProvider>
-
-  
   );
 };
 
 export default App;
-
