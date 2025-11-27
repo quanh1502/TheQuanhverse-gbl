@@ -1,22 +1,39 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Send, Wind, Music } from 'lucide-react';
 
-// --- CẤU HÌNH CẢM XÚC (GIỮ NGUYÊN) ---
+// --- CẤU HÌNH CẢM XÚC ---
 const EMOTIONS = [
-  { id: 'joy', label: 'Niềm Vui', color: '#FFD700', type: 'good' },      
-  { id: 'sad', label: 'Nỗi Buồn', color: '#3498DB', type: 'heavy' },     
-  { id: 'anger', label: 'Giận Dữ', color: '#E74C3C', type: 'heavy' },    
-  { id: 'heal', label: 'Chữa Lành', color: '#2ECC71', type: 'good' },    
-  { id: 'dream', label: 'Giấc Mơ', color: '#9B59B6', type: 'good' },     
-  { id: 'empty', label: 'Trống Rỗng', color: '#BDC3C7', type: 'heavy' }  
+  { id: 'joy', label: 'Hy Vọng', color: '#FFD700', type: 'good' },       // Vàng
+  { id: 'sad', label: 'Nỗi Buồn', color: '#3498DB', type: 'heavy' },     // Xanh dương
+  { id: 'anger', label: 'Xả Giận', color: '#E74C3C', type: 'heavy' },    // Đỏ
+  { id: 'heal', label: 'Hạnh Phúc', color: '#2ECC71', type: 'good' },    // Xanh lá
+  { id: 'dream', label: 'Giấc Mơ', color: '#9B59B6', type: 'good' },     // Tím
+  { id: 'empty', label: 'Trống Rỗng', color: '#BDC3C7', type: 'heavy' }  // Trắng
 ];
 
-// --- TYPES (GIỮ NGUYÊN) ---
-interface Projectile { x: number; y: number; targetX: number; targetY: number; color: string; speed: number; progress: number; type: 'normal' | 'anger' | 'hope' | 'joy'; }
-interface Bloom { id: number; x: number; y: number; color: string; size: number; maxSize: number; phase: number; vx: number; vy: number; isFlyingOff: boolean; type: 'static' | 'falling'; }
-interface Firework { x: number; y: number; vx: number; vy: number; alpha: number; color: string; life: number; }
-interface MascotFlyer { x: number; y: number; active: boolean; trail: {x: number, y: number, alpha: number}[]; }
-interface Branch { x: number; y: number; endX: number; endY: number; depth: number; width: number; angle: number; }
+// --- TYPES ---
+interface Projectile {
+  x: number; y: number; targetX: number; targetY: number;
+  color: string; speed: number; progress: number;
+  type: 'normal' | 'anger' | 'hope' | 'joy';
+}
+
+interface Bloom {
+  id: number; x: number; y: number; color: string; size: number; maxSize: number;
+  phase: number; vx: number; vy: number; isFlyingOff: boolean; type: 'static' | 'falling';
+}
+
+interface Firework {
+  x: number; y: number; vx: number; vy: number; alpha: number; color: string; life: number;
+}
+
+interface MascotFlyer {
+  x: number; y: number; active: boolean; trail: {x: number, y: number, alpha: number}[];
+}
+
+interface Branch {
+  x: number; y: number; endX: number; endY: number; depth: number; width: number; angle: number;
+}
 
 interface TechRoomProps {
     onNavigate: (room: 'tech' | 'audio', params?: any) => void;
@@ -56,12 +73,11 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     treeShake: 0,
   });
 
-  // --- INIT TREE (ĐIỀU CHỈNH NHẸ TỈ LỆ ĐỂ CÂY TO HƠN TRÊN TABLET) ---
+  // --- INIT TREE ---
   const generateTreeStructure = (w: number, h: number) => {
     const branches: Branch[] = [];
-    // Tăng độ lớn gốc cây dựa trên chiều rộng màn hình để cân đối hơn trên Tablet
-    const baseWidth = Math.min(w, h) * 0.025; // Responsive width
-    const baseHeight = h * 0.22; // Cây cao hơn một chút
+    const baseWidth = Math.min(w, h) * 0.025; 
+    const baseHeight = h * 0.22; 
 
     const grow = (x: number, y: number, len: number, angle: number, wid: number, depth: number) => {
       const endX = x + len * Math.cos(angle);
@@ -70,12 +86,10 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       
       if (len < 10 || depth > 10) return;
       
-      // Điều chỉnh góc xòe một chút để tán cây rộng hơn
       grow(endX, endY, len * 0.75, angle - 0.35 - Math.random() * 0.1, wid * 0.7, depth + 1);
       grow(endX, endY, len * 0.75, angle + 0.35 + Math.random() * 0.1, wid * 0.7, depth + 1);
     };
     
-    // Gốc cây luôn ở giữa dưới màn hình
     grow(w / 2, h, baseHeight, -Math.PI / 2, baseWidth, 0);
     return branches;
   };
@@ -88,12 +102,9 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     if (!ctx) return;
 
     const handleResize = () => {
-      // Xử lý High DPI (Retina Display) cho Tablet/Phone để cây sắc nét
       const dpr = window.devicePixelRatio || 1;
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
-      
-      // Scale context để logic vẽ vẫn dùng toạ độ CSS
       ctx.scale(dpr, dpr);
 
       gameState.current.width = window.innerWidth;
@@ -106,9 +117,8 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     let animationId: number;
     const render = () => {
       const state = gameState.current;
-      state.time += 0.03;
+      state.time += 0.05; // Tăng tốc độ thời gian tổng thể (mọi thứ nhanh hơn 1 chút)
 
-      // Countdown Timer logic (GIỮ NGUYÊN)
       if (state.activeEffect) {
           state.effectTimer--;
           if (state.effectTimer <= 0) {
@@ -125,106 +135,128 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       ctx.fillStyle = `rgb(${baseBg}, ${baseBg}, ${baseBg + 5})`;
       ctx.fillRect(0, 0, state.width, state.height);
 
-      // --- SPECIAL EFFECTS RENDER (GIỮ NGUYÊN LOGIC) ---
+      // --- SPECIAL EFFECTS ---
+      
+      // A. ANGER MODE (Tăng tốc độ & Giảm độ trễ)
       if (state.activeEffect === 'anger') {
-          if (state.effectTimer < 1100) {
+          if (state.effectTimer < 750) { // Hiện chữ sớm hơn
               ctx.save();
-              ctx.globalAlpha = Math.min(1, (1100 - state.effectTimer) * 0.02);
-              // Tăng font size động theo màn hình
+              ctx.globalAlpha = Math.min(1, (750 - state.effectTimer) * 0.05); // Fade in nhanh hơn
               ctx.font = `900 ${Math.min(state.width/10, 80)}px sans-serif`; 
               ctx.textAlign = "center";
               ctx.shadowColor = "#E74C3C";
-              ctx.shadowBlur = 20 + Math.sin(state.time * 20) * 10;
+              ctx.shadowBlur = 0; // Bỏ blur nặng để đỡ lag
               ctx.fillStyle = "#fff";
               ctx.fillText("FUCK THIS SHIT 🖕", state.width / 2, state.height / 3);
               
-              ctx.fillStyle = `rgba(231, 76, 60, ${Math.abs(Math.sin(state.time * 10)) * 0.2})`;
+              ctx.fillStyle = `rgba(231, 76, 60, ${Math.abs(Math.sin(state.time * 10)) * 0.15})`;
               ctx.fillRect(0, 0, state.width, state.height);
               ctx.restore();
           }
-          // Fireworks loop...
+
+          // Fireworks: Tối ưu loop
           for (let i = state.fireworks.length - 1; i >= 0; i--) {
               const f = state.fireworks[i];
-              f.x += f.vx; f.y += f.vy; f.vy += 0.05; f.life--; f.alpha -= 0.01;
+              f.x += f.vx; f.y += f.vy; 
+              f.vy += 0.1; // Trọng lực mạnh hơn rơi cho nhanh
+              f.life -= 1.5; // Nổ nhanh tàn nhanh
+              f.alpha -= 0.02;
               if (f.life <= 0) { state.fireworks.splice(i, 1); continue; }
               ctx.fillStyle = f.color;
               ctx.globalAlpha = f.alpha;
-              ctx.beginPath(); ctx.arc(f.x, f.y, 2, 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.arc(f.x, f.y, 2.5, 0, Math.PI*2); ctx.fill();
               ctx.globalAlpha = 1;
           }
-          if (Math.random() > 0.9) {
+          if (Math.random() > 0.85) { // Spawn nhiều hơn
               const fx = Math.random() * state.width;
               const fy = Math.random() * state.height / 2;
-              for(let k=0; k<20; k++) state.fireworks.push({
-                  x: fx, y: fy, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5,
+              for(let k=0; k<25; k++) state.fireworks.push({
+                  x: fx, y: fy, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8,
                   color: ['#E74C3C', '#F1C40F', '#ECF0F1'][Math.floor(Math.random()*3)],
-                  life: 60, alpha: 1
+                  life: 50, alpha: 1
               });
           }
       }
 
+      // B. HOPE MODE
       if (state.activeEffect === 'hope' && state.star.active) {
           const s = state.star;
           ctx.save();
           ctx.translate(s.x, s.y);
-          const gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
+          // Giảm blur radius để tăng performance
+          const gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 30);
           gradient.addColorStop(0, "white");
-          gradient.addColorStop(0.2, "#FFD700");
+          gradient.addColorStop(0.4, "#FFD700");
           gradient.addColorStop(1, "transparent");
           ctx.fillStyle = gradient;
-          ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI*2); ctx.fill();
-          ctx.rotate(state.time * 0.1);
+          ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.fill();
+          
+          ctx.rotate(state.time * 0.2); // Xoay nhanh hơn
           ctx.fillStyle = "#FFF";
           ctx.font = "40px serif";
           ctx.fillText("✨", -15, 15);
           ctx.restore();
       }
 
-      // 2. Tree Drawing (GIỮ NGUYÊN LOGIC)
+      // 2. Tree Drawing
       const breath = Math.sin(state.time) * 0.5 + 0.5;
       let trunkColorStr = `rgb(${Math.floor(state.trunkR)}, ${Math.floor(state.trunkG)}, ${Math.floor(state.trunkB)})`;
       if (state.activeEffect === 'hope') trunkColorStr = `rgb(255, 223, 0)`;
       if (state.activeEffect === 'joy') trunkColorStr = `rgb(46, 204, 113)`;
 
       ctx.lineCap = "round";
+      // Tối ưu: Tính toán các biến static ngoài loop
+      const windSwayBase = state.windForce * Math.sin(state.time * 5);
+      let activeSwayBase = 0;
+      if (state.activeEffect === 'joy') activeSwayBase = Math.sin(state.time * 20) * 2;
+      else if (state.activeEffect === 'hope') activeSwayBase = Math.sin(state.time * 2) * 5;
+
       state.branches.forEach(b => {
         ctx.beginPath();
-        let activeSway = Math.sin(state.time + b.depth) * (b.depth * 0.5);
-        if (state.activeEffect === 'joy') activeSway += Math.sin(state.time * 20) * 2; 
-        else if (state.activeEffect === 'hope') activeSway += Math.sin(state.time * 2) * 5;
-        const windSway = state.windForce * (b.depth * 0.05) * Math.sin(state.time * 5);
+        // Công thức sway đơn giản hóa để tính toán nhanh hơn
+        const sway = Math.sin(state.time + b.depth) * (b.depth * 0.5) + activeSwayBase + (windSwayBase * b.depth * 0.05);
+        
         ctx.moveTo(b.x, b.y);
-        ctx.lineTo(b.endX + activeSway + windSway, b.endY);
+        ctx.lineTo(b.endX + sway, b.endY);
         ctx.lineWidth = b.width;
         ctx.strokeStyle = trunkColorStr;
-        let shadowBlur = 0;
-        if (state.vitality > 40) shadowBlur = (state.vitality - 40) * 0.2 * breath;
-        if (state.activeEffect) shadowBlur = 20;
-        ctx.shadowBlur = shadowBlur;
-        ctx.shadowColor = trunkColorStr;
+        
+        // CHỈ VẼ SHADOW KHI CẦN THIẾT (Tối ưu FPS cực mạnh)
+        if (state.vitality > 60 || state.activeEffect) {
+             // Chỉ shadow nhẹ, tránh shadow lớn gây lag
+             ctx.shadowBlur = 10; 
+             ctx.shadowColor = trunkColorStr;
+        } else {
+             ctx.shadowBlur = 0;
+        }
         ctx.stroke();
         ctx.shadowBlur = 0;
       });
 
-      // Mascot Anger (GIỮ NGUYÊN)
+      // C. ANGER MASCOT (Bay nhanh hơn)
       if (state.activeEffect === 'anger' && state.mascot.active) {
           const m = state.mascot;
-          m.x -= 15; m.y += Math.sin(state.time * 10) * 2;
+          m.x -= 25; // TỐC ĐỘ BAY TĂNG GẤP ĐÔI (Cũ là 15)
+          m.y += Math.sin(state.time * 15) * 5; // Lượn biên độ rộng hơn
+          
           if (m.x > 0) m.trail.push({ x: m.x, y: m.y, alpha: 1 });
-          if (m.x > -100) { ctx.font = "40px serif"; ctx.fillText("🧙‍♀️", m.x, m.y); }
+          if (m.x > -100) { ctx.font = "50px serif"; ctx.fillText("🧙‍♀️", m.x, m.y); }
+          
           for(let i=m.trail.length-1; i>=0; i--) {
               const t = m.trail[i];
-              t.y += 2; t.alpha -= 0.02;
+              t.y += 4; // Rơi nhanh hơn
+              t.alpha -= 0.05; // Tan nhanh hơn
               if(t.alpha <= 0) { m.trail.splice(i, 1); continue; }
               ctx.fillStyle = `rgba(231, 76, 60, ${t.alpha})`;
               ctx.beginPath(); ctx.arc(t.x, t.y, 3, 0, Math.PI*2); ctx.fill();
           }
       }
 
-      // 3. Projectiles (GIỮ NGUYÊN LOGIC)
+      // 3. Projectiles (Bay cực nhanh)
       for (let i = state.projectiles.length - 1; i >= 0; i--) {
           const p = state.projectiles[i];
-          p.progress += p.speed;
+          p.progress += p.speed; 
+          
           const cx = (p.x + p.targetX) / 2; 
           const cy = Math.min(p.y, p.targetY) - 200;
           const t = p.progress; const invT = 1 - t;
@@ -233,28 +265,28 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
 
           ctx.save();
           ctx.translate(currX, currY);
-          ctx.rotate(t * 10);
+          ctx.rotate(t * 15);
           ctx.fillStyle = p.color;
-          ctx.shadowBlur = 10; ctx.shadowColor = p.color;
+          // Bỏ shadow khi đang bay nhanh để mượt
           ctx.fillRect(-6, -4, 12, 8);
           ctx.restore();
 
           if (p.progress >= 1) {
               state.projectiles.splice(i, 1);
               if (p.type === 'anger') {
-                  state.activeEffect = 'anger'; state.effectTimer = 1200; 
+                  state.activeEffect = 'anger'; state.effectTimer = 800; // Giảm thời gian chờ hiệu ứng
                   state.mascot = { x: state.width, y: 100, active: true, trail: [] };
-                  for(let k=0; k<30; k++) state.fireworks.push({ x: currX, y: currY, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, color: '#E74C3C', life: 40, alpha: 1 });
+                  for(let k=0; k<40; k++) state.fireworks.push({ x: currX, y: currY, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, color: '#E74C3C', life: 50, alpha: 1 });
               } 
               else if (p.type === 'hope') {
-                  state.activeEffect = 'hope'; state.effectTimer = 1200;
+                  state.activeEffect = 'hope'; state.effectTimer = 800;
                   state.star = { x: currX, y: 100, active: true, brightness: 1 };
               }
               else if (p.type === 'joy') {
-                  state.activeEffect = 'joy'; state.effectTimer = 1200;
+                  state.activeEffect = 'joy'; state.effectTimer = 800;
                   const tips = state.branches.filter(b => b.depth > 6);
                   tips.forEach(tip => {
-                      if(Math.random() > 0.7) state.blooms.push({ id: Math.random(), x: tip.endX, y: tip.endY, color: '#2ECC71', size: Math.random()*4+2, maxSize: 5, phase: 0, vx: 0, vy: 0.5 + Math.random(), isFlyingOff: false, type: 'falling' });
+                      if(Math.random() > 0.6) state.blooms.push({ id: Math.random(), x: tip.endX, y: tip.endY, color: '#2ECC71', size: Math.random()*4+2, maxSize: 5, phase: 0, vx: 0, vy: 1 + Math.random(), isFlyingOff: false, type: 'falling' });
                   });
               }
               else {
@@ -263,37 +295,47 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           }
       }
 
-      // 4. Blooms (GIỮ NGUYÊN LOGIC)
+      // 4. Blooms
       for (let i = state.blooms.length - 1; i >= 0; i--) {
         const b = state.blooms[i];
+
         if (state.windForce > 0) {
             b.isFlyingOff = true;
             b.vx += state.windForce * 0.5 + (Math.random()-0.5);
             b.vy += (Math.random() - 0.2) * 2;
         }
+
         if (b.type === 'falling') {
-            b.y += b.vy; b.x += Math.sin(state.time + b.id) * 0.5;
+            b.y += b.vy; 
+            b.x += Math.sin(state.time + b.id) * 1; // Rơi lượn sóng mạnh hơn
             if (b.y > state.height) { state.blooms.splice(i, 1); continue; }
         }
+
         if (b.isFlyingOff) {
             b.x += b.vx; b.y += b.vy; b.vx *= 0.98; b.size *= 0.99;
             if (b.x > state.width || b.x < 0 || b.y < 0 || b.size < 0.5) { state.blooms.splice(i, 1); continue; }
         } 
-        if (b.size < b.maxSize) b.size += 0.1;
+        
+        if (b.size < b.maxSize) b.size += 0.2; // Nở nhanh hơn
         let stickSway = 0;
         if (b.type === 'static') {
              stickSway = Math.sin(state.time * 5) * state.windForce * 10;
              if (state.activeEffect === 'joy') stickSway += Math.sin(state.time * 20) * 2;
         }
+
         const bloomBreath = Math.sin(state.time * 3 + b.phase) * 0.3 + 0.8;
         ctx.fillStyle = b.color;
-        const glow = state.vitality > 50 || state.activeEffect ? 20 : 8;
-        ctx.shadowBlur = glow * bloomBreath; ctx.shadowColor = b.color;
+        // Chỉ glow nhẹ
+        if(state.vitality > 80) {
+             ctx.shadowBlur = 5; ctx.shadowColor = b.color;
+        } else {
+             ctx.shadowBlur = 0;
+        }
         ctx.beginPath(); ctx.arc(b.x + stickSway, b.y, b.size * bloomBreath, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
       }
       
       if (!isWindBlowing && state.windForce > 0) {
-          state.windForce -= 0.01; if (state.windForce < 0) state.windForce = 0;
+          state.windForce -= 0.02; if (state.windForce < 0) state.windForce = 0;
       }
       animationId = requestAnimationFrame(render);
     };
@@ -305,7 +347,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     };
   }, [isWindBlowing]);
 
-  // --- ACTIONS (LOGIC GIỮ NGUYÊN) ---
+  // --- ACTIONS ---
   const sendToVoid = useCallback(() => {
     const state = gameState.current;
     const mood = state.selectedMood;
@@ -338,9 +380,11 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         }
     }
     state.projectiles.push({
-        x: state.width / 2, y: state.height - 120, // Start cao hơn chút để không bị che
+        x: state.width / 2, y: state.height - 120, 
         targetX: targetX, targetY: targetY,
-        color: mood.color, speed: 0.015, progress: 0, type: projectileType
+        color: mood.color, 
+        speed: 0.04, // TĂNG TỐC ĐỘ ĐẠN (Gấp đôi, cũ là 0.015)
+        progress: 0, type: projectileType
     });
     setInputValue('');
   }, []);
@@ -367,18 +411,14 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       }
   };
 
-  // --- PHẦN CHỈNH SỬA GIAO DIỆN (UI) ---
   return (
     <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');`}</style>
 
-      {/* POPUP */}
       {showMusicPrompt && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4">
             <div className="bg-[#151515] border border-white/10 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_50px_rgba(255,255,255,0.05)] transform scale-100 transition-all">
-                <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Music size={24} className="text-white/70" />
-                </div>
+                <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4"><Music size={24} className="text-white/70" /></div>
                 <h3 className="text-xl font-serif text-white/90 mb-3 leading-snug">{getPromptMessage()}</h3>
                 <div className="flex gap-4 justify-center mt-6">
                     <button onClick={() => { setShowMusicPrompt(false); setEmotionTracker({}); }} className="px-6 py-3 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-colors text-xs uppercase tracking-widest font-bold">Không cần đâu</button>
@@ -388,10 +428,8 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* CANVAS */}
       <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none" />
 
-      {/* HEADER INFO - CHỈNH VỊ TRÍ CHO TABLET */}
       <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right z-10 select-none pointer-events-none">
         <div className="font-serif text-white/50 text-xs md:text-sm">Sức Sống</div>
         <div className="w-24 md:w-32 h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
@@ -399,35 +437,27 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* WIND BUTTON - LÀM TO RA ĐỂ DỄ BẤM */}
       <button onClick={triggerWind} title="Thổi bay ký ức" className={`absolute top-4 left-16 md:top-6 md:left-24 p-3 md:p-4 rounded-full border border-white/10 backdrop-blur-md transition-all duration-500 z-50 hover:bg-white/10 group ${isWindBlowing ? 'rotate-180 bg-white/20' : ''}`}>
         <Wind className={`w-5 h-5 md:w-6 md:h-6 text-white/60 group-hover:text-white ${isWindBlowing ? 'animate-pulse' : ''}`} />
       </button>
 
-      {/* TITLE - DỊCH LÊN CAO HƠN */}
       <div className={`absolute top-[30%] md:top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none transition-opacity duration-1000 ${vitalityUI > 15 ? 'opacity-0' : 'opacity-70'}`}>
         <h1 className="font-serif text-2xl md:text-3xl text-white/40 tracking-widest whitespace-nowrap">CÂY TÂM TƯ</h1>
       </div>
 
-      {/* CONTROLS - CÂN CHỈNH KHOẢNG CÁCH (PADDING/MARGIN) */}
       <div className="absolute bottom-0 left-0 w-full pb-6 pt-10 md:pb-8 md:pt-20 px-4 flex flex-col items-center justify-end z-50 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
         <div className="w-full max-w-[500px] flex flex-col items-center gap-3 md:gap-5 pointer-events-auto">
-            {/* PALETTE - TĂNG KÍCH THƯỚC NÚT CHO TOUCH */}
             <div className="flex justify-center gap-3 md:gap-4 p-2 flex-wrap">
                 {EMOTIONS.map((mood) => (
                     <button key={mood.id} onClick={() => handleSelectMood(mood)} className={`w-10 h-10 md:w-10 md:h-10 rounded-full border-2 transition-all duration-200 ${currentMoodId === mood.id ? 'scale-125 border-white shadow-[0_0_10px_currentColor]' : 'border-transparent opacity-50 hover:opacity-100 hover:scale-110'}`} style={{ backgroundColor: mood.color }} title={mood.label} />
                 ))}
             </div>
-            
-            {/* INPUT - TĂNG VÙNG CHẠM */}
             <div className="w-full relative flex items-center gap-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full px-3 py-3 md:px-4 md:py-3 shadow-2xl focus-within:bg-white/10 focus-within:border-white/30">
                 <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendToVoid()} placeholder="Gửi tâm tư vào cây..." className="flex-1 bg-transparent border-none text-white/90 font-serif text-base md:text-lg px-2 md:px-4 focus:outline-none placeholder:text-white/30" />
                 <button onClick={sendToVoid} disabled={isWindBlowing} className="p-2 md:p-3 bg-white/10 hover:bg-white/20 rounded-full text-white/80 transition-all hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50">
                   <Send size={20} />
                 </button>
             </div>
-            
-            {/* LABEL */}
             <div className="text-[10px] md:text-xs text-white/30 font-light tracking-widest uppercase mt-1">
                 {EMOTIONS.find(e => e.id === currentMoodId)?.label}
             </div>
