@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Send, Wind, Music } from 'lucide-react';
+import { Send, Wind, Music, Lock, ArrowRight } from 'lucide-react';
 
-// --- CẤU HÌNH CẢM XÚC (CẬP NHẬT THÊM MÔ TẢ HIỆU ỨNG) ---
+// --- CẤU HÌNH CẢM XÚC ---
 const EMOTIONS = [
   { 
     id: 'joy', 
@@ -25,7 +25,7 @@ const EMOTIONS = [
     color: '#E74C3C', 
     type: 'heavy',
     placeholder: "Viết hết sự bực dọc vào đây để xả nó đi!",
-    effectDesc: "Cẩn thận! Thư sẽ nổ tung và xả hết cơn giận của bạn!" // Gợi ý hiệu ứng nổ
+    effectDesc: "Cẩn thận! Thư sẽ nổ tung và xả hết cơn giận của bạn!" 
   },
   { 
     id: 'heal', 
@@ -53,7 +53,7 @@ const EMOTIONS = [
   } 
 ];
 
-// --- TYPES (GIỮ NGUYÊN) ---
+// --- TYPES ---
 interface Projectile { x: number; y: number; targetX: number; targetY: number; color: string; speed: number; progress: number; type: 'normal' | 'anger' | 'hope' | 'joy'; }
 interface Bloom { id: number; x: number; y: number; color: string; size: number; maxSize: number; phase: number; vx: number; vy: number; isFlyingOff: boolean; type: 'static' | 'falling'; }
 interface Firework { x: number; y: number; vx: number; vy: number; alpha: number; color: string; life: number; }
@@ -64,6 +64,75 @@ interface TechRoomProps {
     onNavigate: (room: 'tech' | 'audio', params?: any) => void;
 }
 
+// --- COMPONENT: SECURITY GATE (MÀN HÌNH KHÓA) ---
+const SecurityGate = ({ 
+  onUnlock, 
+  isWrongPass 
+}: { 
+  onUnlock: (pass: string) => void,
+  isWrongPass: boolean 
+}) => {
+  const [inputPass, setInputPass] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUnlock(inputPass);
+  };
+
+  return (
+    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-[#020202]">
+      {/* Background Effect phù hợp với Tech Room */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.05)_1px,_transparent_1px)] bg-[length:20px_20px] opacity-20"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm px-6">
+        <div className="mb-8 text-center space-y-2">
+          <div className={`mx-auto w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all duration-300 ${isWrongPass ? 'animate-shake border-red-500/50 text-red-500' : 'border-white/20 text-white/80'}`}>
+            <Lock size={32} />
+          </div>
+          <h2 className="text-2xl font-serif text-white tracking-widest">MIND PALACE</h2>
+          <p className="text-xs font-mono text-white/40 uppercase tracking-widest">Access Restricted</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="relative group">
+          <input
+            type="password"
+            autoFocus
+            value={inputPass}
+            onChange={(e) => setInputPass(e.target.value)}
+            placeholder="PIN"
+            className="w-full bg-white/5 border-b-2 border-white/10 py-4 px-4 text-center text-xl text-white tracking-[0.5em] placeholder:text-white/20 placeholder:tracking-normal focus:outline-none focus:border-white/50 transition-colors rounded-t-lg"
+          />
+          <button 
+            type="submit"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/30 hover:text-white transition-colors"
+          >
+            <ArrowRight size={20} />
+          </button>
+        </form>
+
+        {isWrongPass && (
+          <p className="mt-4 text-center text-xs text-red-400 font-mono animate-pulse">
+            ACCESS DENIED.
+          </p>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [inputValue, setInputValue] = useState('');
@@ -71,8 +140,27 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const [currentMoodId, setCurrentMoodId] = useState('joy');
   const [isWindBlowing, setIsWindBlowing] = useState(false);
 
+  // --- LOCK STATE ---
+  const [isLocked, setIsLocked] = useState(true);
+  const [isWrongPass, setIsWrongPass] = useState(false);
+  const MY_SECRET_PASS = "2026"; 
+
+  // --- LOCK HANDLERS ---
+  const handleUnlock = (pass: string) => {
+    if (pass === MY_SECRET_PASS) {
+      setIsLocked(false);
+      setIsWrongPass(false);
+    } else {
+      setIsWrongPass(true);
+      setTimeout(() => setIsWrongPass(false), 2000);
+    }
+  };
+
+  const handleLockRoom = () => {
+      setIsLocked(true);
+  };
+
   // --- DERIVED STATE ---
-  // Lấy thông tin cảm xúc hiện tại để hiển thị gợi ý
   const currentEmotion = EMOTIONS.find(e => e.id === currentMoodId) || EMOTIONS[0];
 
   // --- LOGIC STATE ---
@@ -116,7 +204,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     return branches;
   };
 
-  // --- ANIMATION LOOP (GIỮ NGUYÊN HOÀN TOÀN) ---
+  // --- ANIMATION LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -226,10 +314,10 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         ctx.lineWidth = b.width;
         ctx.strokeStyle = trunkColorStr;
         if (state.vitality > 60 || state.activeEffect) {
-             ctx.shadowBlur = 10; 
-             ctx.shadowColor = trunkColorStr;
+              ctx.shadowBlur = 10; 
+              ctx.shadowColor = trunkColorStr;
         } else {
-             ctx.shadowBlur = 0;
+              ctx.shadowBlur = 0;
         }
         ctx.stroke();
         ctx.shadowBlur = 0;
@@ -309,15 +397,15 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         if (b.size < b.maxSize) b.size += 0.2; 
         let stickSway = 0;
         if (b.type === 'static') {
-             stickSway = Math.sin(state.time * 5) * state.windForce * 10;
-             if (state.activeEffect === 'joy') stickSway += Math.sin(state.time * 20) * 2;
+              stickSway = Math.sin(state.time * 5) * state.windForce * 10;
+              if (state.activeEffect === 'joy') stickSway += Math.sin(state.time * 20) * 2;
         }
         const bloomBreath = Math.sin(state.time * 3 + b.phase) * 0.3 + 0.8;
         ctx.fillStyle = b.color;
         if(state.vitality > 80) {
-             ctx.shadowBlur = 5; ctx.shadowColor = b.color;
+              ctx.shadowBlur = 5; ctx.shadowColor = b.color;
         } else {
-             ctx.shadowBlur = 0;
+              ctx.shadowBlur = 0;
         }
         ctx.beginPath(); ctx.arc(b.x + stickSway, b.y, b.size * bloomBreath, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
       }
@@ -335,7 +423,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     };
   }, [isWindBlowing]);
 
-  // --- ACTIONS (GIỮ NGUYÊN) ---
+  // --- ACTIONS ---
   const sendToVoid = useCallback(() => {
     const state = gameState.current;
     const mood = state.selectedMood;
@@ -399,11 +487,28 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       }
   };
 
-  // --- UI CẢI TIẾN ---
+  // --- UI RENDER ---
   return (
     <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');`}</style>
 
+      {/* --- LOCK OVERLAY --- */}
+      {isLocked && (
+        <SecurityGate onUnlock={handleUnlock} isWrongPass={isWrongPass} />
+      )}
+
+      {/* --- MANUAL LOCK BUTTON (TOP LEFT) --- */}
+      {!isLocked && (
+        <button 
+          onClick={handleLockRoom}
+          className="absolute top-4 left-4 z-50 p-3 rounded-full border border-white/5 bg-white/5 hover:bg-white/10 transition-colors opacity-50 hover:opacity-100"
+          title="Lock Room"
+        >
+          <Lock size={20} className="text-white/60" />
+        </button>
+      )}
+
+      {/* --- MUSIC PROMPT MODAL --- */}
       {showMusicPrompt && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4">
             <div className="bg-[#151515] border border-white/10 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_50px_rgba(255,255,255,0.05)] transform scale-100 transition-all">
@@ -421,6 +526,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
 
       <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none" />
 
+      {/* --- VITALITY INDICATOR (TOP RIGHT) --- */}
       <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right z-10 select-none pointer-events-none">
         <div className="font-serif text-white/50 text-xs md:text-sm">Sức Sống</div>
         <div className="w-24 md:w-32 h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
@@ -428,8 +534,9 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <button onClick={triggerWind} title="Thổi bay ký ức" className={`absolute top-4 left-16 md:top-6 md:left-24 p-3 md:p-4 rounded-full border border-white/10 backdrop-blur-md transition-all duration-500 z-50 hover:bg-white/10 group ${isWindBlowing ? 'rotate-180 bg-white/20' : ''}`}>
-        <Wind className={`w-5 h-5 md:w-6 md:h-6 text-white/60 group-hover:text-white ${isWindBlowing ? 'animate-pulse' : ''}`} />
+      {/* --- WIND BUTTON (NEXT TO LOCK) --- */}
+      <button onClick={triggerWind} title="Thổi bay ký ức" className={`absolute top-4 left-16 md:top-4 md:left-20 p-3 md:p-3 rounded-full border border-white/10 backdrop-blur-md transition-all duration-500 z-50 hover:bg-white/10 group ${isWindBlowing ? 'rotate-180 bg-white/20' : ''}`}>
+        <Wind className={`w-5 h-5 md:w-5 md:h-5 text-white/60 group-hover:text-white ${isWindBlowing ? 'animate-pulse' : ''}`} />
       </button>
 
       <div className={`absolute top-[30%] md:top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none transition-opacity duration-1000 ${vitalityUI > 15 ? 'opacity-0' : 'opacity-70'}`}>
