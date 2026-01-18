@@ -6,8 +6,7 @@ import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- IMPORT TỪ CÁC FILE ĐÃ TÁCH (Sử dụng ./ vì nằm cùng thư mục) ---
-// Lưu ý: Tên file import phải khớp chính xác với tên file bạn đã đặt (chữ thường/hoa)
+// --- IMPORTS CÁC FILE CON CÙNG THƯ MỤC ---
 import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase } from './utils';
 import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from './audiosubComponents';
 import { DetailModal, EditModal } from './audiomodals';
@@ -45,7 +44,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   
   const playerRef = useRef<any>(null);
 
-  // 1. Load Data from Firebase
+  // 1. Load Data
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = onSnapshot(collection(db, "audio-shelves"), 
@@ -62,39 +61,33 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
 
   // 2. Load YouTube API
   useEffect(() => {
-      if (!window.YT) {
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-        window.onYouTubeIframeAPIReady = () => { /* API Ready */ };
-      }
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      window.onYouTubeIframeAPIReady = () => { /* API Ready */ };
   }, []);
 
-  // 3. Initialize/Update Player Logic
+  // 3. Initialize/Update Player
   useEffect(() => {
       if (!activeTrack || !activeTrack.trackUrl) return;
       const videoId = getYouTubeId(activeTrack.trackUrl);
       if (!videoId) return;
 
       if (!playerRef.current) {
-          // Initialize Player if not exists
-          if (window.YT && window.YT.Player) {
-            playerRef.current = new window.YT.Player('youtube-player', {
-                height: '0', width: '0', videoId: videoId,
-                playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'showinfo': 0 },
-                events: {
-                    'onReady': (event: any) => { event.target.setVolume(volume); event.target.playVideo(); setIsPlaying(true); setDuration(event.target.getDuration()); },
-                    'onStateChange': (event: any) => {
-                        if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
-                        if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
-                        if (event.data === window.YT.PlayerState.ENDED) handleNextTrack();
-                    }
-                }
-            });
-          }
+          playerRef.current = new window.YT.Player('youtube-player', {
+              height: '0', width: '0', videoId: videoId,
+              playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'showinfo': 0 },
+              events: {
+                  'onReady': (event: any) => { event.target.setVolume(volume); event.target.playVideo(); setIsPlaying(true); setDuration(event.target.getDuration()); },
+                  'onStateChange': (event: any) => {
+                      if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
+                      if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
+                      if (event.data === window.YT.PlayerState.ENDED) handleNextTrack();
+                  }
+              }
+          });
       } else {
-          // Load new video if player exists
           playerRef.current.loadVideoById(videoId);
           playerRef.current.playVideo();
           setIsPlaying(true);
@@ -104,7 +97,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   // 4. Progress Interval
   useEffect(() => {
       const interval = setInterval(() => {
-          if (playerRef.current && isPlaying && typeof playerRef.current.getCurrentTime === 'function') {
+          if (playerRef.current && isPlaying) {
               setCurrentTime(playerRef.current.getCurrentTime());
               setDuration(playerRef.current.getDuration());
           }
@@ -112,31 +105,17 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // --- PLAYER CONTROLS ---
   const togglePlay = () => { if (!playerRef.current) return; if (isPlaying) playerRef.current.pauseVideo(); else playerRef.current.playVideo(); setIsPlaying(!isPlaying); };
   const handleSeek = (time: number) => { if (playerRef.current) { playerRef.current.seekTo(time, true); setCurrentTime(time); } };
   const handleVolumeChange = (vol: number) => { setVolume(vol); if (playerRef.current) playerRef.current.setVolume(vol); };
-  
-  const handleNextTrack = () => { 
-      if (!activeTrack || queue.length === 0) return; 
-      const currentIndex = queue.findIndex(t => t.id === activeTrack.id); 
-      const nextIndex = (currentIndex + 1) % queue.length; 
-      setActiveTrack(queue[nextIndex]); 
-  };
-  
-  const handlePrevTrack = () => { 
-      if (!activeTrack || queue.length === 0) return; 
-      const currentIndex = queue.findIndex(t => t.id === activeTrack.id); 
-      const prevIndex = (currentIndex - 1 + queue.length) % queue.length; 
-      setActiveTrack(queue[prevIndex]); 
-  };
+  const handleNextTrack = () => { if (!activeTrack || queue.length === 0) return; const currentIndex = queue.findIndex(t => t.id === activeTrack.id); const nextIndex = (currentIndex + 1) % queue.length; setActiveTrack(queue[nextIndex]); };
+  const handlePrevTrack = () => { if (!activeTrack || queue.length === 0) return; const currentIndex = queue.findIndex(t => t.id === activeTrack.id); const prevIndex = (currentIndex - 1 + queue.length) % queue.length; setActiveTrack(queue[prevIndex]); };
   
   const playTrackFromShelf = (track: AlbumItem, shelfId: number) => {
       const shelf = shelves.find(s => s.id === shelfId);
       if (shelf) setQueue(shelf.items); else setQueue([track]);
       setActiveTrack(track); setViewingItem(null);
   };
-  
   const playSpotlight = (track: AlbumItem) => {
       const allFavorites = shelves.flatMap(s => s.items).filter(i => i.isFavorite);
       setQueue(allFavorites); setActiveTrack(track);
@@ -159,7 +138,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     return () => clearTimeout(flyTimer);
   }, [initialMood]);
 
-  // --- HANDLERS (Shelf & Item CRUD) ---
+  // Handlers
   const handleMascotClose = () => { setMascotPhase('returning'); setTimeout(() => { setMascotPhase('idle'); }, 1000); };
   const handleAddShelf = async () => { const newId = Date.now(); await setDoc(doc(db, "audio-shelves", String(newId)), { id: newId, title: "Bộ Sưu Tập Mới", items: [] }); setEditingShelfId(newId); setTempShelfTitle("Bộ Sưu Tập Mới"); };
   const handleSaveShelfTitle = async (id: number) => { if (!tempShelfTitle.trim()) return; await updateDoc(doc(db, "audio-shelves", String(id)), { title: tempShelfTitle }); setEditingShelfId(null); };
@@ -173,7 +152,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       const allFavorites: AlbumItem[] = []; shelves.forEach(shelf => { shelf.items.forEach(item => { if(item.isFavorite) allFavorites.push(item); }); });
       allFavorites.sort((a, b) => b.id - a.id); return allFavorites;
   }, [shelves]);
-  
   useEffect(() => { if (spotlightItems.length <= 1) return; const timer = setInterval(() => { setSpotlightIndex(prev => (prev + 1) % spotlightItems.length); }, 8000); return () => clearInterval(timer); }, [spotlightItems]);
   const nextSpotlight = () => setSpotlightIndex(prev => (prev + 1) % spotlightItems.length);
   const prevSpotlight = () => setSpotlightIndex(prev => (prev - 1 + spotlightItems.length) % spotlightItems.length);
@@ -186,7 +164,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       return tracks;
   }, [shelves, filterType, sortType]);
 
-  // Drag Drop (Simplified)
+  // Drag Drop (Simplified for brevity)
   const [draggedItem, setDraggedItem] = useState<{ item: AlbumItem, sourceShelfId: number, sourceIndex: number } | null>(null);
   const handleDragStart = (e: React.DragEvent, item: AlbumItem, shelfId: number, index: number) => { if (viewMode === 'library') { e.preventDefault(); return; } setDraggedItem({ item, sourceShelfId: shelfId, sourceIndex: index }); e.dataTransfer.effectAllowed = "move"; (e.target as HTMLElement).classList.add('opacity-50'); };
   const handleDragEnd = (e: React.DragEvent) => { (e.target as HTMLElement).classList.remove('opacity-50'); setDraggedItem(null); };
@@ -197,21 +175,15 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   return (
     <div className="relative h-full w-full flex flex-col items-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
       <style>{globalStyles}</style>
-      
-      {/* Hidden YouTube Player */}
       <div id="youtube-player" className="hidden fixed top-0 left-0"></div>
       
-      {/* Background Ambience */}
+      {/* Background & Header */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none animate-float"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/20 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
       
-      {/* HEADER & NAV */}
       {!focusedShelfId && (
           <div className="z-30 w-full max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void sticky top-0 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent backdrop-blur-sm">
-              <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/5 rounded-full border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"><Headphones size={24} className="text-cyan-400" /></div>
-                  <div><h1 className="text-2xl font-bold text-white tracking-wider font-mono uppercase">Quanh<span className="text-cyan-400">Zik</span></h1><p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">Sonic Archive</p></div>
-              </div>
+              <div className="flex items-center gap-4"><div className="p-3 bg-white/5 rounded-full border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"><Headphones size={24} className="text-cyan-400" /></div><div><h1 className="text-2xl font-bold text-white tracking-wider font-mono uppercase">Quanh<span className="text-cyan-400">Zik</span></h1><p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">Sonic Archive</p></div></div>
               <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 backdrop-blur-md">
                    <button onClick={() => setViewMode('shelves')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'shelves' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <LayoutGrid size={14} /> Kệ Đĩa </button>
                    <button onClick={() => setViewMode('library')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'library' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <Library size={14} /> Thư Viện </button>
@@ -219,16 +191,12 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
           </div>
       )}
 
-      {/* MAIN CONTENT */}
       <div className={`relative w-full h-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? 'pb-32' : 'pb-10'}`}>
          <div className="max-w-7xl mx-auto min-h-[500px]">
-             
-             {/* 1. SPOTLIGHT CAROUSEL */}
              {!focusedShelfId && viewMode === 'shelves' && spotlightItems.length > 0 && (
                  <SpotlightHero item={spotlightItems[spotlightIndex]} onClick={() => playSpotlight(spotlightItems[spotlightIndex])} onNext={nextSpotlight} onPrev={prevSpotlight} total={spotlightItems.length} currentIndex={spotlightIndex} />
              )}
              
-             {/* 2. SHELVES VIEW */}
              {viewMode === 'shelves' && !focusedShelfId && (
                 <div className="flex flex-col gap-12 pb-20">
                     {shelves.length === 0 && !isLoading && <div className="text-center text-slate-500 italic mt-20">Chưa có kệ nhạc nào. Hãy tạo mới!</div>}
@@ -244,11 +212,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                                 {editingShelfId === shelf.id && ( <div className="absolute left-0 bottom-2 bg-slate-900 p-2 border border-cyan-500 rounded z-20 flex gap-2"> <input autoFocus className="bg-transparent border-b border-cyan-500 text-white text-sm outline-none" value={tempShelfTitle} onChange={(e) => setTempShelfTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSaveShelfTitle(shelf.id)} /> <button onClick={() => handleSaveShelfTitle(shelf.id)}><Check size={14} className="text-green-400"/></button> </div> )}
                             </div>
                             <div className="flex flex-wrap items-end gap-x-8 gap-y-12 pl-4">
-                                {shelf.items.slice(0, PREVIEW_LIMIT).map((item, index) => ( 
-                                    <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item, shelf.id, index)} onDragEnd={handleDragEnd} onDrop={(e) => { e.stopPropagation(); handleDrop(e, shelf.id, index); }}> 
-                                        <JewelCase3D item={item} isPlayingThis={activeTrack?.id === item.id && isPlaying} onClick={() => playTrackFromShelf(item, shelf.id)} onEdit={() => setEditingItem({ item, shelfId: shelf.id })} /> 
-                                    </div> 
-                                ))}
+                                {shelf.items.slice(0, PREVIEW_LIMIT).map((item, index) => ( <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item, shelf.id, index)} onDragEnd={handleDragEnd} onDrop={(e) => { e.stopPropagation(); handleDrop(e, shelf.id, index); }}> <JewelCase3D item={item} isPlayingThis={activeTrack?.id === item.id && isPlaying} onClick={() => playTrackFromShelf(item, shelf.id)} onEdit={() => setEditingItem({ item, shelfId: shelf.id })} /> </div> ))}
                                 <AddNewAlbum onClick={() => handleAddNewItem(shelf.id)} />
                                 {shelf.items.length > PREVIEW_LIMIT && ( <div onClick={() => setFocusedShelfId(shelf.id)} className="mb-12 w-32 h-32 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer group"> <span className="text-xl font-bold text-slate-500 group-hover:text-white">+{shelf.items.length - PREVIEW_LIMIT}</span> <span className="text-[10px] text-slate-600 uppercase">Xem Thêm</span> </div> )}
                             </div>
@@ -258,7 +222,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                 </div>
              )}
              
-             {/* 3. LIBRARY VIEW */}
              {viewMode === 'library' && !focusedShelfId && (
                  <div className="py-8 animate-fade-in">
                      <div className="flex flex-wrap items-center gap-4 mb-8 sticky top-20 z-20 bg-slate-900/80 backdrop-blur-xl p-4 rounded-2xl border border-white/5 shadow-xl">
@@ -270,7 +233,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                  </div>
              )}
              
-             {/* 4. FOCUSED SHELF */}
              {focusedShelf && (
                 <div className="animate-zoom-in py-8">
                     <div className="flex items-center gap-4 mb-8"> <button onClick={() => setFocusedShelfId(null)} className="p-2 rounded-full hover:bg-white/10 text-white transition-colors"><ArrowLeft size={24} /></button> <h2 className="text-3xl font-bold text-white font-mono uppercase tracking-wider">{focusedShelf.title}</h2> </div>
@@ -280,7 +242,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
          </div>
       </div>
 
-      {/* --- MASCOT & OVERLAYS --- */}
       {mascotPhase === 'flying' && <div className="fixed z-50 w-full h-full pointer-events-none"><FlyingBroomMascot /></div>}
       {mascotPhase === 'greeting' && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-500">
