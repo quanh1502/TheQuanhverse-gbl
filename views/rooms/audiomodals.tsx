@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
-import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from '../../utils/audioRoomUtils';
+import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from './utils';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
 
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
