@@ -195,7 +195,7 @@ const SecurityGate = ({
             <Lock size={32} />
           </div>
           <h2 className="text-2xl font-serif text-slate-200 tracking-wider">RESTRICTED ACCESS</h2>
-          <p className="text-xs font-mono text-slate-500 uppercase tracking-widest">Enter Passcode to Enter The Roastery</p>
+          {/* <p className="text-xs font-mono text-slate-500 uppercase tracking-widest">NHẬP MẬT KHẨU MỚI VÔ ĐƯỢC</p> */}
         </div>
 
         <form onSubmit={handleSubmit} className="relative group">
