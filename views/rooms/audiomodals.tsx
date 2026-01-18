@@ -1,12 +1,10 @@
-// src/rooms/audiomodals.tsx
 import React, { useState, useRef } from 'react';
-import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
+import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus, ExternalLink } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
-
-// --- SỬA LỖI Ở ĐÂY: Dùng ./ để lấy file utils ---
 import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from './utils';
 
+// --- MODAL XEM CHI TIẾT (Giữ nguyên) ---
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
         <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={onClose}></div>
@@ -40,11 +38,11 @@ export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClos
     </div>
 );
 
+// --- MODAL CHỈNH SỬA (Đã sửa logic Search) ---
 export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -56,13 +54,36 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
      const results = await searchMusicDatabase(searchQuery);
      setSearchResults(results); setIsSearching(false);
   };
+
+  // --- LOGIC MỚI: SỬA LỖI SEARCH LINK ---
   const handleSelectMusic = (music: any) => {
-     setFormData(prev => ({ ...prev, title: music.title, artist: music.artist, coverUrl: music.thumbnail, year: music.year, trackUrl: music.youtubeSearchLink }));
+     // Chỉ điền metadata, để trống trackUrl vì link search không chạy được
+     setFormData(prev => ({ 
+         ...prev, 
+         title: music.title, 
+         artist: music.artist, 
+         coverUrl: music.thumbnail, 
+         year: music.year, 
+         trackUrl: "" // Reset URL để bắt buộc user paste link thật
+     }));
+     
+     // Tự động mở tab tìm kiếm YouTube để user tiện copy link
+     if (music.youtubeSearchLink) {
+         window.open(music.youtubeSearchLink, '_blank');
+     }
      setIsSearchMode(false);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
+  
+  // Logic cũ: Link -> Info (Magic Wand)
   const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
+
+  // Helper mở tìm kiếm thủ công
+  const openManualSearch = () => {
+      const query = `${formData.title} ${formData.artist} lyrics`;
+      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
+  };
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
@@ -77,57 +98,45 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
                 <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20}/></button>
              </div>
           </div>
-
+          
           <div className="p-6 space-y-5 overflow-y-auto scrollbar-hide relative min-h-[400px]">
              {isSearchMode ? (
                 <div className="space-y-4 animate-fade-in">
-                   <div className="flex gap-2">
-                      <div className="relative flex-1"><input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Tên bài hát, ca sĩ..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" /><Search size={16} className="absolute left-3 top-3.5 text-slate-500" /></div>
-                      <button onClick={handleMusicSearch} disabled={isSearching} className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center items-center">{isSearching ? <Loader2 size={16} className="animate-spin" /> : "Tìm"}</button>
-                   </div>
-                   <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
-                      {searchResults.length === 0 && !isSearching && <div className="text-center text-slate-500 py-8 text-sm italic">{searchQuery && searchResults.length === 0 ? "Không tìm thấy kết quả." : "Tìm kiếm từ kho nhạc quốc tế."}</div>}
-                      {searchResults.map((music) => (
-                         <div key={music.id} onClick={() => handleSelectMusic(music)} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer group transition-colors border border-transparent hover:border-white/10 items-center">
-                            <img src={music.thumbnail} alt="" className="w-12 h-12 object-cover rounded-lg shadow-md" />
-                            <div className="flex-1 overflow-hidden"><h4 className="text-sm font-bold text-slate-200 truncate">{music.title}</h4><p className="text-xs text-slate-500 mt-0.5 truncate">{music.artist}</p></div>
-                            <Plus size={18} className="text-slate-600 group-hover:text-cyan-400"/>
-                         </div>
-                      ))}
-                   </div>
+                   <div className="flex gap-2"><input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Tên bài hát, ca sĩ..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" /><button onClick={handleMusicSearch} disabled={isSearching} className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center items-center">{isSearching ? <Loader2 size={16} className="animate-spin" /> : "Tìm"}</button></div>
+                   <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">{searchResults.map((music) => ( <div key={music.id} onClick={() => handleSelectMusic(music)} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer group transition-colors border border-transparent hover:border-white/10 items-center"><img src={music.thumbnail} alt="" className="w-12 h-12 object-cover rounded-lg shadow-md" /><div className="flex-1 overflow-hidden"><h4 className="text-sm font-bold text-slate-200 truncate">{music.title}</h4><p className="text-xs text-slate-500 mt-0.5 truncate">{music.artist}</p></div><Plus size={18} className="text-slate-600 group-hover:text-cyan-400"/></div>))}</div>
                    <button onClick={() => setIsSearchMode(false)} className="w-full py-2 text-xs text-slate-500 hover:text-white uppercase tracking-wider font-medium mt-4">Hủy tìm kiếm</button>
                 </div>
              ) : (
              <>
                 <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-1 relative group aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-700 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                       {formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[10px]">Upload Cover</span></div>}
-                       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                    </div>
-                    <div className="col-span-2 space-y-3">
-                       <div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Bài Hát</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div>
-                       <div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Nghệ Sĩ</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div>
-                    </div>
+                    <div className="col-span-1 relative group aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-700 cursor-pointer" onClick={() => fileInputRef.current?.click()}>{formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[10px]">Upload Cover</span></div>}<input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" /></div>
+                    <div className="col-span-2 space-y-3"><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Bài Hát</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Nghệ Sĩ</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div></div>
                 </div>
+                
+                {/* --- KHU VỰC NHẬP LINK (Đã cải tiến UI) --- */}
                 <div>
-                    <label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between"><div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube/Link</div></label>
+                    <label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
+                        <div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube Link (Bắt buộc)</div>
+                        {formData.title && (
+                            <button onClick={openManualSearch} className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-cyan-400 cursor-pointer bg-white/5 px-2 py-0.5 rounded-full hover:bg-white/10 transition-colors">
+                                <ExternalLink size={8} /> Tìm link
+                            </button>
+                        )}
+                    </label>
                     <div className="relative">
-                       <input type="text" value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-blue-300 focus:border-cyan-500 outline-none pr-10" />
-                       <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1.5 bg-cyan-500/10 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50">{isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}</button>
+                        <input type="text" placeholder="Dán link video YouTube vào đây..." value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-blue-300 focus:border-cyan-500 outline-none pr-10" />
+                        <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1.5 bg-cyan-500/10 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50" title="Auto-fill info from Link">{isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}</button>
                     </div>
+                    {!formData.trackUrl && <p className="text-[9px] text-red-400 mt-1 italic">* Hãy dán link video cụ thể để nghe nhạc.</p>}
                 </div>
+
                 <div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Ghi Chú</label><textarea value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-300 focus:border-cyan-500 outline-none h-24 resize-none" /></div>
                 <div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Năm</label><input type="text" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} className="w-24 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white" /></div>
              </>
              )}
           </div>
           
-          {!isSearchMode && (
-              <div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0">
-                 <button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button>
-                 <button onClick={() => onSave(formData)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20"><Save size={18} /> Lưu Thay Đổi</button>
-              </div>
-          )}
+          {!isSearchMode && (<div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0"><button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button><button onClick={() => onSave(formData)} disabled={!formData.trackUrl} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={18} /> Lưu Thay Đổi</button></div>)}
        </div>
     </div>
   );
