@@ -1,9 +1,11 @@
-// src/components/audio/AudioModals.tsx
+// src/rooms/audiomodals.tsx
 import React, { useState, useRef } from 'react';
 import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
-import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from './utils';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
+
+// --- SỬA LỖI Ở ĐÂY: Dùng ./ để lấy file utils ---
+import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from './utils';
 
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
@@ -43,7 +45,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // --- RESTORED SEARCH LOGIC ---
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -59,7 +60,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
      setFormData(prev => ({ ...prev, title: music.title, artist: music.artist, coverUrl: music.thumbnail, year: music.year, trackUrl: music.youtubeSearchLink }));
      setIsSearchMode(false);
   };
-  // -----------------------------
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
   const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
@@ -68,7 +68,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose}></div>
        <div className="relative bg-[#0f172a] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
-          {/* Header */}
           <div className="p-5 bg-white/5 border-b border-white/5 flex justify-between items-center shrink-0">
              <h3 className="text-lg font-bold text-white flex items-center gap-2">{isSearchMode ? <Disc size={18} className="text-cyan-400" /> : <Edit3 size={18} className="text-cyan-400" />} {isSearchMode ? "Tìm nhạc (iTunes)" : "Chỉnh sửa đĩa"}</h3>
              <div className="flex items-center gap-2">
@@ -81,7 +80,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
 
           <div className="p-6 space-y-5 overflow-y-auto scrollbar-hide relative min-h-[400px]">
              {isSearchMode ? (
-                // --- SEARCH UI RESTORED ---
                 <div className="space-y-4 animate-fade-in">
                    <div className="flex gap-2">
                       <div className="relative flex-1"><input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Tên bài hát, ca sĩ..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" /><Search size={16} className="absolute left-3 top-3.5 text-slate-500" /></div>
@@ -99,7 +97,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
                    </div>
                    <button onClick={() => setIsSearchMode(false)} className="w-full py-2 text-xs text-slate-500 hover:text-white uppercase tracking-wider font-medium mt-4">Hủy tìm kiếm</button>
                 </div>
-                // --------------------------
              ) : (
              <>
                 <div className="grid grid-cols-3 gap-4">
