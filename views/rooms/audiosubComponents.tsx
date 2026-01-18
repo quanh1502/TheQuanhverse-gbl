@@ -1,8 +1,12 @@
-// src/components/audio/AudioSubComponents.tsx
+// src/rooms/audiosubComponents.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Music, Plus } from 'lucide-react';
-import RavenclawTaurusMascot from '../RavenclawTaurusMascot';
 import { AlbumItem } from '../../contexts/DataContext';
+
+// --- SỬA LỖI Ở ĐÂY: Dùng ../../ để tìm đúng file Mascot ---
+import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
+
+// --- SỬA LỖI Ở ĐÂY: Dùng ./ để lấy file utils ngay bên cạnh ---
 import { formatTime } from './utils';
 
 // --- MASCOT ---
