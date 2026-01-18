@@ -7,9 +7,24 @@ import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // --- IMPORTS MỚI TỪ CÁC FILE ĐÃ TÁCH ---
-import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase } from '../../utils/audioRoomUtils';
-import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from '../../components/audio/AudioSubComponents';
-import { DetailModal, EditModal } from '../../components/audio/AudioModals';
+// src/rooms/AudioRoom.tsx
+
+// --- GIỮ NGUYÊN CÁC IMPORT CỦA REACT VÀ FIREBASE ---
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Loader2 } from 'lucide-react';
+import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot'; // Kiểm tra lại dòng này nếu Mascot cũng lỗi
+import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
+import { db } from '../../services/firebase';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+
+// --- SỬA CÁC DÒNG NÀY ĐỂ TRỎ ĐÚNG VÀO FILE BẠN VỪA TẠO ---
+// Dùng ./ vì file nằm cùng thư mục. Tên file phải khớp chính xác chữ hoa/thường trong ảnh bạn gửi.
+
+import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase } from './utils';
+import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from './audiosubComponents';
+import { DetailModal, EditModal } from './audiomodals';
+
+// ... (Phần code bên dưới giữ nguyên);
 
 // Extend Window interface for YouTube API
 declare global { interface Window { onYouTubeIframeAPIReady: () => void; YT: any; } }
