@@ -1,13 +1,12 @@
 // src/rooms/AudioRoom.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Loader2, Play } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- IMPORT TỪ CÁC FILE ĐÃ TÁCH (Sử dụng ./ vì nằm cùng thư mục) ---
-// Lưu ý: Tên file import phải khớp chính xác với tên file bạn đã đặt (chữ thường/hoa)
+// --- IMPORT CÁC FILE CON ---
 import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase } from './utils';
 import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from './audiosubComponents';
 import { DetailModal, EditModal } from './audiomodals';
@@ -42,10 +41,11 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
+  const [isPlayerReady, setIsPlayerReady] = useState(false); // Trạng thái sẵn sàng của YouTube API
   
   const playerRef = useRef<any>(null);
 
-  // 1. Load Data from Firebase
+  // 1. Load Data
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = onSnapshot(collection(db, "audio-shelves"), 
@@ -60,46 +60,60 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Load YouTube API
+  // 2. Load YouTube API (Logic mới: Robust hơn)
   useEffect(() => {
       if (!window.YT) {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-        window.onYouTubeIframeAPIReady = () => { /* API Ready */ };
+        window.onYouTubeIframeAPIReady = () => { setIsPlayerReady(true); };
+      } else {
+        setIsPlayerReady(true);
       }
   }, []);
 
-  // 3. Initialize/Update Player Logic
+  // 3. Initialize/Update Player (Logic mới: Xử lý Race Condition)
   useEffect(() => {
-      if (!activeTrack || !activeTrack.trackUrl) return;
+      // Chỉ chạy khi đã chọn bài hát VÀ API YouTube đã tải xong
+      if (!activeTrack || !activeTrack.trackUrl || !isPlayerReady) return;
+      
       const videoId = getYouTubeId(activeTrack.trackUrl);
       if (!videoId) return;
 
+      // Nếu Player chưa tồn tại, tạo mới
       if (!playerRef.current) {
-          // Initialize Player if not exists
-          if (window.YT && window.YT.Player) {
+          try {
             playerRef.current = new window.YT.Player('youtube-player', {
                 height: '0', width: '0', videoId: videoId,
-                playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'showinfo': 0 },
+                playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'showinfo': 0, 'playsinline': 1 },
                 events: {
-                    'onReady': (event: any) => { event.target.setVolume(volume); event.target.playVideo(); setIsPlaying(true); setDuration(event.target.getDuration()); },
+                    'onReady': (event: any) => { 
+                        event.target.setVolume(volume); 
+                        event.target.playVideo(); 
+                        setIsPlaying(true); 
+                        setDuration(event.target.getDuration()); 
+                    },
                     'onStateChange': (event: any) => {
                         if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
                         if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
                         if (event.data === window.YT.PlayerState.ENDED) handleNextTrack();
-                    }
+                    },
+                    'onError': (e: any) => console.error("YouTube Player Error:", e)
                 }
             });
-          }
+          } catch (e) { console.error("Init Player Failed", e); }
       } else {
-          // Load new video if player exists
-          playerRef.current.loadVideoById(videoId);
-          playerRef.current.playVideo();
-          setIsPlaying(true);
+          // Nếu Player đã có, chỉ cần load video mới
+          // Kiểm tra xem hàm loadVideoById có tồn tại không (tránh crash)
+          if (typeof playerRef.current.loadVideoById === 'function') {
+            playerRef.current.loadVideoById(videoId);
+            // Đôi khi autoplay bị chặn, cần gọi playVideo rõ ràng
+            setTimeout(() => playerRef.current.playVideo(), 100); 
+            setIsPlaying(true);
+          }
       }
-  }, [activeTrack]);
+  }, [activeTrack, isPlayerReady]); // Chạy lại khi đổi bài hoặc khi API sẵn sàng
 
   // 4. Progress Interval
   useEffect(() => {
@@ -112,37 +126,39 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // --- PLAYER CONTROLS ---
-  const togglePlay = () => { if (!playerRef.current) return; if (isPlaying) playerRef.current.pauseVideo(); else playerRef.current.playVideo(); setIsPlaying(!isPlaying); };
-  const handleSeek = (time: number) => { if (playerRef.current) { playerRef.current.seekTo(time, true); setCurrentTime(time); } };
-  const handleVolumeChange = (vol: number) => { setVolume(vol); if (playerRef.current) playerRef.current.setVolume(vol); };
-  
-  const handleNextTrack = () => { 
-      if (!activeTrack || queue.length === 0) return; 
-      const currentIndex = queue.findIndex(t => t.id === activeTrack.id); 
-      const nextIndex = (currentIndex + 1) % queue.length; 
-      setActiveTrack(queue[nextIndex]); 
+  const togglePlay = () => { 
+    if (!playerRef.current || typeof playerRef.current.playVideo !== 'function') return; 
+    if (isPlaying) playerRef.current.pauseVideo(); 
+    else playerRef.current.playVideo(); 
+    setIsPlaying(!isPlaying); 
   };
   
-  const handlePrevTrack = () => { 
-      if (!activeTrack || queue.length === 0) return; 
-      const currentIndex = queue.findIndex(t => t.id === activeTrack.id); 
-      const prevIndex = (currentIndex - 1 + queue.length) % queue.length; 
-      setActiveTrack(queue[prevIndex]); 
+  const handleSeek = (time: number) => { 
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') { 
+        playerRef.current.seekTo(time, true); 
+        setCurrentTime(time); 
+    } 
   };
+  
+  const handleVolumeChange = (vol: number) => { 
+    setVolume(vol); 
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') playerRef.current.setVolume(vol); 
+  };
+
+  const handleNextTrack = () => { if (!activeTrack || queue.length === 0) return; const currentIndex = queue.findIndex(t => t.id === activeTrack.id); const nextIndex = (currentIndex + 1) % queue.length; setActiveTrack(queue[nextIndex]); };
+  const handlePrevTrack = () => { if (!activeTrack || queue.length === 0) return; const currentIndex = queue.findIndex(t => t.id === activeTrack.id); const prevIndex = (currentIndex - 1 + queue.length) % queue.length; setActiveTrack(queue[prevIndex]); };
   
   const playTrackFromShelf = (track: AlbumItem, shelfId: number) => {
       const shelf = shelves.find(s => s.id === shelfId);
       if (shelf) setQueue(shelf.items); else setQueue([track]);
       setActiveTrack(track); setViewingItem(null);
   };
-  
   const playSpotlight = (track: AlbumItem) => {
       const allFavorites = shelves.flatMap(s => s.items).filter(i => i.isFavorite);
       setQueue(allFavorites); setActiveTrack(track);
   };
 
-  // --- MASCOT & RECOMMENDATION ---
+  // --- MASCOT ---
   useEffect(() => {
     const flyTimer = setTimeout(async () => {
       setMascotPhase('greeting');
@@ -159,7 +175,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     return () => clearTimeout(flyTimer);
   }, [initialMood]);
 
-  // --- HANDLERS (Shelf & Item CRUD) ---
+  // Handlers
   const handleMascotClose = () => { setMascotPhase('returning'); setTimeout(() => { setMascotPhase('idle'); }, 1000); };
   const handleAddShelf = async () => { const newId = Date.now(); await setDoc(doc(db, "audio-shelves", String(newId)), { id: newId, title: "Bộ Sưu Tập Mới", items: [] }); setEditingShelfId(newId); setTempShelfTitle("Bộ Sưu Tập Mới"); };
   const handleSaveShelfTitle = async (id: number) => { if (!tempShelfTitle.trim()) return; await updateDoc(doc(db, "audio-shelves", String(id)), { title: tempShelfTitle }); setEditingShelfId(null); };
@@ -173,7 +189,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       const allFavorites: AlbumItem[] = []; shelves.forEach(shelf => { shelf.items.forEach(item => { if(item.isFavorite) allFavorites.push(item); }); });
       allFavorites.sort((a, b) => b.id - a.id); return allFavorites;
   }, [shelves]);
-  
   useEffect(() => { if (spotlightItems.length <= 1) return; const timer = setInterval(() => { setSpotlightIndex(prev => (prev + 1) % spotlightItems.length); }, 8000); return () => clearInterval(timer); }, [spotlightItems]);
   const nextSpotlight = () => setSpotlightIndex(prev => (prev + 1) % spotlightItems.length);
   const prevSpotlight = () => setSpotlightIndex(prev => (prev - 1 + spotlightItems.length) % spotlightItems.length);
@@ -198,14 +213,13 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     <div className="relative h-full w-full flex flex-col items-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
       <style>{globalStyles}</style>
       
-      {/* Hidden YouTube Player */}
+      {/* Hidden YouTube Player (Fixed for playback) */}
       <div id="youtube-player" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}></div>
       
       {/* Background Ambience */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none animate-float"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/20 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
       
-      {/* HEADER & NAV */}
       {!focusedShelfId && (
           <div className="z-30 w-full max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void sticky top-0 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent backdrop-blur-sm">
               <div className="flex items-center gap-4">
@@ -219,7 +233,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
           </div>
       )}
 
-      {/* MAIN CONTENT */}
       <div className={`relative w-full h-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? 'pb-32' : 'pb-10'}`}>
          <div className="max-w-7xl mx-auto min-h-[500px]">
              
