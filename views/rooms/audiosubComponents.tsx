@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Music, Plus } from 'lucide-react';
 import RavenclawTaurusMascot from '../RavenclawTaurusMascot';
 import { AlbumItem } from '../../contexts/DataContext';
-import { formatTime } from '../../utils/audioRoomUtils';
+import { formatTime } from './utils';
 
 // --- MASCOT ---
 export const FlyingBroomMascot = () => {
