@@ -133,6 +133,7 @@ const SecurityGate = ({
   );
 };
 
+// --- COMPONENT CHÍNH ---
 const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [inputValue, setInputValue] = useState('');
@@ -145,21 +146,6 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const [isWrongPass, setIsWrongPass] = useState(false);
   const MY_SECRET_PASS = "2026"; 
 
-  // --- LOCK HANDLERS ---
-  const handleUnlock = (pass: string) => {
-    if (pass === MY_SECRET_PASS) {
-      setIsLocked(false);
-      setIsWrongPass(false);
-    } else {
-      setIsWrongPass(true);
-      setTimeout(() => setIsWrongPass(false), 2000);
-    }
-  };
-
-  const handleLockRoom = () => {
-      setIsLocked(true);
-  };
-
   // --- DERIVED STATE ---
   const currentEmotion = EMOTIONS.find(e => e.id === currentMoodId) || EMOTIONS[0];
 
@@ -168,7 +154,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
   const [dominantMood, setDominantMood] = useState<typeof EMOTIONS[0] | null>(null);
   const [showMusicPrompt, setShowMusicPrompt] = useState(false);
 
-  // GAME STATE
+  // GAME STATE (Ref để không trigger re-render khi animation chạy)
   const gameState = useRef({
     selectedMood: EMOTIONS[0],
     vitality: 10,
@@ -187,7 +173,22 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     treeShake: 0,
   });
 
-  // --- INIT TREE ---
+  // --- HANDLERS (LOCK) ---
+  const handleUnlock = (pass: string) => {
+    if (pass === MY_SECRET_PASS) {
+      setIsLocked(false);
+      setIsWrongPass(false);
+    } else {
+      setIsWrongPass(true);
+      setTimeout(() => setIsWrongPass(false), 2000);
+    }
+  };
+
+  const handleLockRoom = () => {
+      setIsLocked(true);
+  };
+
+  // --- TREE GENERATION ---
   const generateTreeStructure = (w: number, h: number) => {
     const branches: Branch[] = [];
     const baseWidth = Math.min(w, h) * 0.025; 
@@ -204,7 +205,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
     return branches;
   };
 
-  // --- ANIMATION LOOP ---
+  // --- ANIMATION EFFECT ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -228,6 +229,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       const state = gameState.current;
       state.time += 0.05;
 
+      // Effect Timer Logic
       if (state.activeEffect) {
           state.effectTimer--;
           if (state.effectTimer <= 0) {
@@ -238,11 +240,13 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           }
       }
 
+      // Background
       let baseBg = 5 + (state.vitality * 0.2);
       if (state.activeEffect === 'hope') baseBg += 5; 
       ctx.fillStyle = `rgb(${baseBg}, ${baseBg}, ${baseBg + 5})`;
       ctx.fillRect(0, 0, state.width, state.height);
 
+      // Anger Effect
       if (state.activeEffect === 'anger') {
           if (state.effectTimer < 750) {
               ctx.save();
@@ -257,6 +261,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
               ctx.fillRect(0, 0, state.width, state.height);
               ctx.restore();
           }
+          // Fireworks
           for (let i = state.fireworks.length - 1; i >= 0; i--) {
               const f = state.fireworks[i];
               f.x += f.vx; f.y += f.vy; 
@@ -278,6 +283,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           }
       }
 
+      // Hope Effect (Star)
       if (state.activeEffect === 'hope' && state.star.active) {
           const s = state.star;
           ctx.save();
@@ -295,7 +301,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           ctx.restore();
       }
 
-      const breath = Math.sin(state.time) * 0.5 + 0.5;
+      // Draw Tree
       let trunkColorStr = `rgb(${Math.floor(state.trunkR)}, ${Math.floor(state.trunkG)}, ${Math.floor(state.trunkB)})`;
       if (state.activeEffect === 'hope') trunkColorStr = `rgb(255, 223, 0)`;
       if (state.activeEffect === 'joy') trunkColorStr = `rgb(46, 204, 113)`;
@@ -323,6 +329,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
         ctx.shadowBlur = 0;
       });
 
+      // Mascot (Anger)
       if (state.activeEffect === 'anger' && state.mascot.active) {
           const m = state.mascot;
           m.x -= 25; 
@@ -338,6 +345,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           }
       }
 
+      // Projectiles
       for (let i = state.projectiles.length - 1; i >= 0; i--) {
           const p = state.projectiles[i];
           p.progress += p.speed; 
@@ -378,6 +386,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
           }
       }
 
+      // Blooms
       for (let i = state.blooms.length - 1; i >= 0; i--) {
         const b = state.blooms[i];
         if (state.windForce > 0) {
@@ -487,7 +496,7 @@ const TechRoom: React.FC<TechRoomProps> = ({ onNavigate }) => {
       }
   };
 
-  // --- UI RENDER ---
+  // --- RETURN (GIAO DIỆN CHÍNH) ---
   return (
     <div className="relative w-full h-screen bg-[#020202] overflow-hidden font-sans text-white">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:ital,wght@1,500&display=swap');`}</style>
