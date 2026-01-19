@@ -33,37 +33,82 @@ export const FlyingBroomMascot = () => {
 };
 
 // --- MINI PLAYER ---
+// Import thêm icons
+import { Repeat, Heart } from 'lucide-react';
+
+// Cập nhật Props cho MiniPlayer
 interface MiniPlayerProps {
-    currentTrack: AlbumItem | null; isPlaying: boolean; onTogglePlay: () => void;
-    onNext: () => void; onPrev: () => void; currentTime: number; duration: number;
-    onSeek: (time: number) => void; volume: number; onVolumeChange: (vol: number) => void;
+    // ... giữ nguyên các props cũ
+    isLooping: boolean;           // MỚI
+    onToggleLoop: () => void;     // MỚI
+    onToggleFavorite: () => void; // MỚI
 }
-export const MiniPlayer: React.FC<MiniPlayerProps> = ({ currentTrack, isPlaying, onTogglePlay, onNext, onPrev, currentTime, duration, onSeek, volume, onVolumeChange }) => {
+
+export const MiniPlayer: React.FC<MiniPlayerProps> = ({ 
+    currentTrack, isPlaying, onTogglePlay, onNext, onPrev, 
+    currentTime, duration, onSeek, volume, onVolumeChange,
+    isLooping, onToggleLoop, onToggleFavorite // Nhận thêm props
+}) => {
     if (!currentTrack) return null;
     return (
         <div className="fixed bottom-0 left-0 right-0 h-24 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 z-[100] animate-slide-in flex items-center px-4 md:px-8 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            {/* 1. INFO SECTION - Giữ nguyên */}
             <div className="flex items-center gap-4 w-1/3 min-w-[200px]">
-                <div className={`w-14 h-14 rounded-full overflow-hidden border-2 border-slate-700 shadow-lg relative ${isPlaying ? 'animate-spin-slow' : ''}`}>
-                    <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center"><div className="w-4 h-4 bg-slate-900 rounded-full border border-white/20"></div></div>
-                </div>
-                <div className="hidden md:block overflow-hidden"><h4 className="text-white font-bold truncate max-w-[150px]">{currentTrack.title}</h4><p className="text-xs text-slate-400 truncate">{currentTrack.artist}</p></div>
+               {/* ... Code cũ hiển thị ảnh và tên bài hát ... */}
+               <div className={`w-14 h-14 rounded-full overflow-hidden border-2 border-slate-700 shadow-lg relative ${isPlaying ? 'animate-spin-slow' : ''}`}>
+                   <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" />
+               </div>
+               <div className="hidden md:block overflow-hidden">
+                   <h4 className="text-white font-bold truncate max-w-[150px]">{currentTrack.title}</h4>
+                   <p className="text-xs text-slate-400 truncate">{currentTrack.artist}</p>
+               </div>
+               
+               {/* NÚT TIM (FAVORITE) - Thêm vào ngay cạnh tên bài hát hoặc tách riêng */}
+               <button onClick={onToggleFavorite} className={`ml-2 hover:scale-110 transition-transform ${currentTrack.isFavorite ? 'text-amber-400' : 'text-slate-600 hover:text-white'}`}>
+                   <Heart size={18} fill={currentTrack.isFavorite ? "currentColor" : "none"} />
+               </button>
             </div>
+
+            {/* 2. CONTROLS SECTION */}
             <div className="flex flex-col items-center justify-center flex-1 max-w-xl">
                 <div className="flex items-center gap-6 mb-2">
+                    {/* NÚT LOOP (LẶP LẠI) */}
+                    <button 
+                        onClick={onToggleLoop} 
+                        className={`transition-colors ${isLooping ? 'text-cyan-400' : 'text-slate-500 hover:text-white'}`}
+                        title="Lặp lại bài này"
+                    >
+                        <Repeat size={18} />
+                    </button>
+
                     <button onClick={onPrev} className="text-slate-400 hover:text-white transition-colors"><SkipBack size={20} fill="currentColor" /></button>
-                    <button onClick={onTogglePlay} className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-white/20">{isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}</button>
+                    
+                    {/* Play/Pause Button - Giữ nguyên */}
+                    <button onClick={onTogglePlay} className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-white/20">
+                        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                    </button>
+                    
                     <button onClick={onNext} className="text-slate-400 hover:text-white transition-colors"><SkipForward size={20} fill="currentColor" /></button>
+                    
+                    {/* Dummy element để cân bằng layout nếu cần, hoặc để trống */}
+                    <div className="w-[18px]"></div> 
                 </div>
-                <div className="w-full flex items-center gap-3 text-xs text-slate-400 font-mono"><span>{formatTime(currentTime)}</span><input type="range" min="0" max={duration || 100} value={currentTime} onChange={(e) => onSeek(Number(e.target.value))} className="range-slider w-full h-1 bg-slate-700 rounded-full appearance-none"/><span>{formatTime(duration)}</span></div>
+                {/* Seekbar - Giữ nguyên */}
+                <div className="w-full flex items-center gap-3 text-xs text-slate-400 font-mono">
+                    <span>{formatTime(currentTime)}</span>
+                    <input type="range" min="0" max={duration || 100} value={currentTime} onChange={(e) => onSeek(Number(e.target.value))} className="range-slider w-full h-1 bg-slate-700 rounded-full appearance-none"/>
+                    <span>{formatTime(duration)}</span>
+                </div>
             </div>
+
+            {/* 3. VOLUME SECTION - Giữ nguyên */}
             <div className="w-1/3 flex items-center justify-end gap-4 min-w-[150px]">
-                <div className="flex items-center gap-2 group"><button onClick={() => onVolumeChange(volume === 0 ? 100 : 0)} className="text-slate-400 hover:text-white">{volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button><input type="range" min="0" max="100" value={volume} onChange={(e) => onVolumeChange(Number(e.target.value))} className="w-20 range-slider h-1 bg-slate-700 rounded-full"/></div>
+                {/* ... code cũ ... */}
+                 <div className="flex items-center gap-2 group"><button onClick={() => onVolumeChange(volume === 0 ? 100 : 0)} className="text-slate-400 hover:text-white">{volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button><input type="range" min="0" max="100" value={volume} onChange={(e) => onVolumeChange(Number(e.target.value))} className="w-20 range-slider h-1 bg-slate-700 rounded-full"/></div>
             </div>
         </div>
     );
 };
-
 // --- SPOTLIGHT HERO ---
 export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentIndex }: any) => {
     if (!item) return null;
