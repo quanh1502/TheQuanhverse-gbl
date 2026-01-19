@@ -231,3 +231,7 @@ export const useData = () => {
   }
   return context;
 };
+export interface AlbumItem {
+  // ... các trường cũ
+  playCount?: number; // Thêm trường này (dấu ? để không lỗi code cũ)
+}
