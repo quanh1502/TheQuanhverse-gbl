@@ -30,15 +30,17 @@ export const globalStyles = `
   .range-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 2px; }
 `;
 
-// --- UTILITIES CƠ BẢN ---
+// --- UTILITIES CỐT LÕI ---
+
+// 1. Hàm lấy ID YouTube siêu mạnh (chấp nhận mọi định dạng)
 export const getYouTubeId = (url: string) => {
   if (!url) return null;
-  // Regex mạnh hơn để bắt dính mọi loại link (short, embed, watch)
   const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[7].length === 11) ? match[7] : null;
 };
 
+// 2. Hàm lấy Thumbnail chất lượng cao từ ID
 export const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 
 export const formatTime = (seconds: number) => {
@@ -47,7 +49,7 @@ export const formatTime = (seconds: number) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-// --- ITUNES SEARCH ---
+// 3. Tìm kiếm iTunes (Chỉ lấy Metadata, KHÔNG tạo link search nữa)
 export const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
@@ -60,7 +62,7 @@ export const searchMusicDatabase = async (query: string) => {
       album: item.collectionName,
       year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
       thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName + " lyrics")}`
+      trackUrl: "" // Để trống để người dùng tự paste link chuẩn
     })) : [];
   } catch (error) { console.error("Music Search Error:", error); return []; }
 };
@@ -87,67 +89,4 @@ export const getMascotMessage = (moodId: string) => {
     case 'heal': return "Hít thở sâu nào... Giai điệu chữa lành dành riêng cho bồ đây.";
     default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
-};
-
-// --- HYBRID ENGINE: TÌM KIẾM VIDEO SIÊU MẠNH MẼ ---
-// Danh sách Server hỗn hợp (Piped + Invidious) để tránh chết chùm
-const SEARCH_PROVIDERS = [
-  { type: 'piped', url: "https://api.piped.otter.sh" },     // Ổn định nhất hiện nay
-  { type: 'invidious', url: "https://inv.tux.pizza" },      // Invidious API (Backup 1)
-  { type: 'piped', url: "https://pipedapi.kavin.rocks" },   // Piped gốc (Thường quá tải)
-  { type: 'invidious', url: "https://invidious.jing.rocks" }, // Invidious API (Backup 2)
-  { type: 'piped', url: "https://pipedapi.drgns.space" }
-];
-
-export const findYoutubeVideo = async (query: string) => {
-  for (const provider of SEARCH_PROVIDERS) {
-    try {
-      console.log(`🔍 Đang thử tìm trên ${provider.type} server: ${provider.url}...`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // Tăng timeout lên 5s
-
-      let fetchUrl = '';
-      if (provider.type === 'piped') {
-        fetchUrl = `${provider.url}/search?q=${encodeURIComponent(query)}&filter=all`;
-      } else {
-        // Cấu trúc API của Invidious khác Piped
-        fetchUrl = `${provider.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
-      }
-
-      const response = await fetch(fetchUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) throw new Error(`Server ${provider.url} returned ${response.status}`);
-      
-      const data = await response.json();
-      let videoId = null;
-
-      // Xử lý dữ liệu trả về tùy theo loại Server
-      if (provider.type === 'piped') {
-        const firstVideo = data.items.find((item: any) => item.type === 'stream');
-        if (firstVideo) {
-             // Trích xuất ID từ URL tương đối (/watch?v=ID)
-             videoId = firstVideo.url.split('v=')[1]; 
-        }
-      } else if (provider.type === 'invidious') {
-        // Invidious trả về mảng trực tiếp, lấy phần tử đầu tiên
-        if (data.length > 0) {
-            videoId = data[0].videoId;
-        }
-      }
-
-      if (videoId) {
-        console.log(`✅ Đã tìm thấy video ID: ${videoId} từ ${provider.url}`);
-        return `https://www.youtube.com/watch?v=${videoId}`;
-      }
-
-    } catch (error) {
-      console.warn(`❌ Thất bại với ${provider.url}:`, error);
-      continue; // Thử server tiếp theo ngay lập tức
-    }
-  }
-  
-  console.error("⛔ Tất cả các server đều không phản hồi hoặc không tìm thấy video.");
-  return null;
 };
