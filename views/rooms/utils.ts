@@ -86,22 +86,27 @@ export const getMascotMessage = (moodId: string) => {
     default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
-// Thêm vào cuối file src/rooms/utils.ts
+// ... (Giữ nguyên các code cũ ở trên)
 
-// Hàm tìm kiếm video YouTube tự động (Dùng Piped API miễn phí)
+// --- THÊM MỚI: Hàm tìm kiếm video YouTube tự động (Dùng Piped API miễn phí) ---
 export const findYoutubeVideo = async (query: string) => {
   try {
     // Gọi API Piped (Dịch vụ trung gian search YouTube không cần API Key)
+    // Filter=all để tìm mọi thứ, nhưng ta sẽ lọc lấy stream (video)
     const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=all`);
+    
     if (!response.ok) throw new Error("Search API Error");
     
     const data = await response.json();
-    // Lấy kết quả đầu tiên là video (không phải playlist/channel)
+    
+    // Lấy kết quả đầu tiên là video (loại bỏ playlist/channel)
     const firstVideo = data.items.find((item: any) => item.type === 'stream');
     
     if (firstVideo) {
-      // Trả về link YouTube chuẩn
-      return `https://www.youtube.com/watch?v=${firstVideo.url.split('/watch?v=')[1]}`;
+      // Trả về link YouTube chuẩn để Player có thể chạy
+      // Link gốc từ API: /watch?v=ID -> Ta ghép thành full link
+      const videoId = firstVideo.url.split('/watch?v=')[1];
+      return `https://www.youtube.com/watch?v=${videoId}`;
     }
     return null;
   } catch (error) {
