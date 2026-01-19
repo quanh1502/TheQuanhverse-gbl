@@ -51,42 +51,34 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleMusicSearch = async () => {
-     if(!searchQuery.trim()) return;
-     setIsSearching(true); setSearchResults([]); 
-     const results = await searchMusicDatabase(searchQuery);
-     setSearchResults(results); setIsSearching(false);
-  };
-
-  // --- LOGIC CHÍNH: TỰ ĐỘNG TÌM VÀ ĐIỀN LINK ---
   const handleSelectMusic = async (music: any) => {
      setIsSearchMode(false);
-     
-     // 1. Điền ngay các thông tin có sẵn từ iTunes
+     // Đặt trạng thái ban đầu, tạm thời để trackUrl rỗng
      setFormData(prev => ({ 
          ...prev, 
          title: music.title, 
          artist: music.artist, 
          coverUrl: music.thumbnail, 
          year: music.year, 
-         trackUrl: "" // Reset URL về rỗng trước khi tìm
+         trackUrl: "" // Reset link cũ
      }));
-
-     // 2. Bắt đầu tìm kiếm ngầm
+     
      setIsAutoFinding(true);
      
-     // Tạo từ khóa: Tên bài + Nghệ sĩ + Official Audio (để tìm bản chuẩn)
+     // Thêm từ khóa "lyrics" hoặc "audio" để tăng độ chính xác tìm kiếm nhạc
      const query = `${music.title} ${music.artist} official audio`;
+     
      const foundUrl = await findYoutubeVideo(query);
-
-     // 3. Nếu tìm thấy, cập nhật vào formData
-     if (foundUrl) {
-         setFormData(prev => ({ ...prev, trackUrl: foundUrl }));
+     
+     if (foundUrl) { 
+         setFormData(prev => ({ ...prev, trackUrl: foundUrl })); 
+     } else {
+         // (Tùy chọn) Có thể thông báo lỗi nhẹ nếu không tìm thấy
+         console.log("Không tìm thấy link tự động, vui lòng nhập tay.");
      }
-
+     
      setIsAutoFinding(false);
   };
-
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
   
   const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
