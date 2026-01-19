@@ -1,6 +1,6 @@
 // src/rooms/AudioRoom.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Loader2, Play } from 'lucide-react';
+import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Play } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { db } from '../../services/firebase';
@@ -11,14 +11,15 @@ import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searc
 import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from './audiosubComponents';
 import { DetailModal, EditModal } from './audiomodals';
 
-// Extend Window interface for YouTube API
 declare global { interface Window { onYouTubeIframeAPIReady: () => void; YT: any; } }
 
 const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
+  // --- STATE QUẢN LÝ DỮ LIỆU ---
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
   
+  // --- STATE GIAO DIỆN ---
   const [viewMode, setViewMode] = useState<'shelves' | 'library'>('shelves'); 
   const [filterType, setFilterType] = useState<'all' | 'favorites'>('all');
   const [sortType, setSortType] = useState<'newest' | 'oldest' | 'az'>('newest');
@@ -41,7 +42,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
-  const [isPlayerReady, setIsPlayerReady] = useState(false); // Trạng thái sẵn sàng của YouTube API
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
   
   const playerRef = useRef<any>(null);
 
@@ -60,7 +61,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Load YouTube API (Logic mới: Robust hơn)
+  // 2. Load YouTube API
   useEffect(() => {
       if (!window.YT) {
         const tag = document.createElement('script');
@@ -73,15 +74,12 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       }
   }, []);
 
-  // 3. Initialize/Update Player (Logic mới: Xử lý Race Condition)
+  // 3. Initialize/Update Player
   useEffect(() => {
-      // Chỉ chạy khi đã chọn bài hát VÀ API YouTube đã tải xong
       if (!activeTrack || !activeTrack.trackUrl || !isPlayerReady) return;
-      
       const videoId = getYouTubeId(activeTrack.trackUrl);
       if (!videoId) return;
 
-      // Nếu Player chưa tồn tại, tạo mới
       if (!playerRef.current) {
           try {
             playerRef.current = new window.YT.Player('youtube-player', {
@@ -104,16 +102,13 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
             });
           } catch (e) { console.error("Init Player Failed", e); }
       } else {
-          // Nếu Player đã có, chỉ cần load video mới
-          // Kiểm tra xem hàm loadVideoById có tồn tại không (tránh crash)
           if (typeof playerRef.current.loadVideoById === 'function') {
             playerRef.current.loadVideoById(videoId);
-            // Đôi khi autoplay bị chặn, cần gọi playVideo rõ ràng
             setTimeout(() => playerRef.current.playVideo(), 100); 
             setIsPlaying(true);
           }
       }
-  }, [activeTrack, isPlayerReady]); // Chạy lại khi đổi bài hoặc khi API sẵn sàng
+  }, [activeTrack, isPlayerReady]);
 
   // 4. Progress Interval
   useEffect(() => {
@@ -158,7 +153,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       setQueue(allFavorites); setActiveTrack(track);
   };
 
-  // --- MASCOT ---
+  // --- MASCOT LOGIC ---
   useEffect(() => {
     const flyTimer = setTimeout(async () => {
       setMascotPhase('greeting');
@@ -175,8 +170,9 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     return () => clearTimeout(flyTimer);
   }, [initialMood]);
 
-  // Handlers
   const handleMascotClose = () => { setMascotPhase('returning'); setTimeout(() => { setMascotPhase('idle'); }, 1000); };
+
+  // --- ACTIONS ---
   const handleAddShelf = async () => { const newId = Date.now(); await setDoc(doc(db, "audio-shelves", String(newId)), { id: newId, title: "Bộ Sưu Tập Mới", items: [] }); setEditingShelfId(newId); setTempShelfTitle("Bộ Sưu Tập Mới"); };
   const handleSaveShelfTitle = async (id: number) => { if (!tempShelfTitle.trim()) return; await updateDoc(doc(db, "audio-shelves", String(id)), { title: tempShelfTitle }); setEditingShelfId(null); };
   const handleDeleteShelf = async (id: number) => { if(window.confirm("Xóa kệ này? Các bài hát bên trong sẽ mất.")) { await deleteDoc(doc(db, "audio-shelves", String(id))); } };
@@ -210,31 +206,67 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const focusedShelf = focusedShelfId ? shelves.find(s => s.id === focusedShelfId) : null;
 
   return (
-    <div className="relative h-full w-full flex flex-col items-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
+    // MAIN LAYOUT CHANGE: overflow-hidden on parent to prevent body scroll
+    <div className="relative h-full w-full flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
       <style>{globalStyles}</style>
       
-      {/* Hidden YouTube Player (Fixed for playback) */}
+      {/* Hidden YouTube Player */}
       <div id="youtube-player" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}></div>
       
-      {/* Background Ambience */}
+      {/* Background Ambience (Fixed position) */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none animate-float"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/20 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
       
-      {!focusedShelfId && (
-          <div className="z-30 w-full max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void sticky top-0 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent backdrop-blur-sm">
+      {/* ================================================================================== */}
+      {/* PART 1 & 2: FIXED HEADER & TOOLBAR AREA (KHÔNG BAO GIỜ CUỘN)                       */}
+      {/* ================================================================================== */}
+      <div className="z-30 w-full flex flex-col bg-gradient-to-b from-slate-900 via-slate-900/90 to-transparent backdrop-blur-md border-b border-white/5 shadow-2xl transition-all duration-300">
+        
+        {/* A. HEADER (Logo & View Switch) - Chỉ hiện khi không focus shelf */}
+        {!focusedShelfId && (
+          <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void">
               <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/5 rounded-full border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"><Headphones size={24} className="text-cyan-400" /></div>
-                  <div><h1 className="text-2xl font-bold text-white tracking-wider font-mono uppercase">Quanh<span className="text-cyan-400">Zik</span></h1><p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">Sonic Archive</p></div>
+                  <div className="p-3 bg-white/5 rounded-full border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                    <Headphones size={24} className="text-cyan-400" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-white tracking-wider font-mono uppercase">Quanh<span className="text-cyan-400">Zik</span></h1>
+                    <p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">Sonic Archive</p>
+                  </div>
               </div>
               <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 backdrop-blur-md">
-                   <button onClick={() => setViewMode('shelves')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'shelves' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <LayoutGrid size={14} /> Kệ Đĩa </button>
-                   <button onClick={() => setViewMode('library')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'library' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <Library size={14} /> Thư Viện </button>
+                    <button onClick={() => setViewMode('shelves')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'shelves' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <LayoutGrid size={14} /> Kệ Đĩa </button>
+                    <button onClick={() => setViewMode('library')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'library' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <Library size={14} /> Thư Viện </button>
               </div>
           </div>
-      )}
+        )}
 
-      <div className={`relative w-full h-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? 'pb-32' : 'pb-10'}`}>
-         <div className="max-w-7xl mx-auto min-h-[500px]">
+        {/* B. TOOLBAR (Filter/Sort) - Chỉ hiện ở chế độ Library */}
+        {viewMode === 'library' && !focusedShelfId && (
+          <div className="px-6 pb-4 pt-0 animate-fade-in flex flex-wrap items-center gap-4">
+               <div className="flex items-center gap-2 border-r border-white/10 pr-4"> 
+                  <Filter size={16} className="text-slate-500"/> 
+                  <button onClick={() => setFilterType('all')} className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === 'all' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'}`}>Tất Cả</button> 
+                  <button onClick={() => setFilterType('favorites')} className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === 'favorites' ? 'bg-amber-400 text-amber-900' : 'text-slate-400 hover:text-amber-400'}`}>Yêu Thích</button> 
+               </div>
+               <div className="flex items-center gap-2"> 
+                  <ArrowUpDown size={16} className="text-slate-500"/> 
+                  <select value={sortType} onChange={(e) => setSortType(e.target.value as any)} className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer"> 
+                    <option value="newest" className="bg-slate-900">Mới Nhất</option> 
+                    <option value="oldest" className="bg-slate-900">Cũ Nhất</option> 
+                    <option value="az" className="bg-slate-900">Tên A-Z</option> 
+                  </select> 
+               </div>
+               <div className="ml-auto text-xs text-slate-500 font-mono"> {allTracks.length} TRACKS </div>
+          </div>
+        )}
+      </div>
+
+      {/* ================================================================================== */}
+      {/* PART 3: SCROLLABLE CONTENT AREA (PHẦN NÀY SẼ "CHUI" XUỐNG DƯỚI HEADER)            */}
+      {/* ================================================================================== */}
+      <div className={`flex-1 w-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? 'pb-32' : 'pb-10'}`}>
+         <div className="max-w-7xl mx-auto min-h-[500px] pt-6">
              
              {/* 1. SPOTLIGHT CAROUSEL */}
              {!focusedShelfId && viewMode === 'shelves' && spotlightItems.length > 0 && (
@@ -243,7 +275,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
              
              {/* 2. SHELVES VIEW */}
              {viewMode === 'shelves' && !focusedShelfId && (
-                <div className="flex flex-col gap-12 pb-20">
+                <div className="flex flex-col gap-12 pb-20 mt-8">
                     {shelves.length === 0 && !isLoading && <div className="text-center text-slate-500 italic mt-20">Chưa có kệ nhạc nào. Hãy tạo mới!</div>}
                     {shelves.map((shelf) => (
                         <div key={shelf.id} ref={(el) => { if (el) shelfRefs.current.set(shelf.id, el); }} className="relative group transition-all duration-500" onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => handleDrop(e, shelf.id)}>
@@ -271,15 +303,12 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                 </div>
              )}
              
-             {/* 3. LIBRARY VIEW */}
+             {/* 3. LIBRARY VIEW (CHỈ RENDER LƯỚI BÀI HÁT, TOOLBAR ĐÃ CHUYỂN LÊN TRÊN) */}
              {viewMode === 'library' && !focusedShelfId && (
                  <div className="py-8 animate-fade-in">
-                     <div className="flex flex-wrap items-center gap-4 mb-8 sticky top-20 z-20 bg-slate-900/80 backdrop-blur-xl p-4 rounded-2xl border border-white/5 shadow-xl">
-                         <div className="flex items-center gap-2 border-r border-white/10 pr-4"> <Filter size={16} className="text-slate-500"/> <button onClick={() => setFilterType('all')} className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === 'all' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'}`}>Tất Cả</button> <button onClick={() => setFilterType('favorites')} className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === 'favorites' ? 'bg-amber-400 text-amber-900' : 'text-slate-400 hover:text-amber-400'}`}>Yêu Thích</button> </div>
-                         <div className="flex items-center gap-2"> <ArrowUpDown size={16} className="text-slate-500"/> <select value={sortType} onChange={(e) => setSortType(e.target.value as any)} className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer"> <option value="newest" className="bg-slate-900">Mới Nhất</option> <option value="oldest" className="bg-slate-900">Cũ Nhất</option> <option value="az" className="bg-slate-900">Tên A-Z</option> </select> </div>
-                         <div className="ml-auto text-xs text-slate-500 font-mono"> {allTracks.length} TRACKS </div>
+                     <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-16"> 
+                      {allTracks.length === 0 ? ( <div className="text-slate-500 italic py-20">Không tìm thấy bài hát nào.</div> ) : ( allTracks.map(({item, shelfId}) => ( <JewelCase3D key={item.id} item={item} isPlayingThis={activeTrack?.id === item.id && isPlaying} onClick={() => playTrackFromShelf(item, shelfId)} onEdit={() => setEditingItem({ item, shelfId })} /> )) )} 
                      </div>
-                     <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-16"> {allTracks.length === 0 ? ( <div className="text-slate-500 italic py-20">Không tìm thấy bài hát nào.</div> ) : ( allTracks.map(({item, shelfId}) => ( <JewelCase3D key={item.id} item={item} isPlayingThis={activeTrack?.id === item.id && isPlaying} onClick={() => playTrackFromShelf(item, shelfId)} onEdit={() => setEditingItem({ item, shelfId })} /> )) )} </div>
                  </div>
              )}
              
