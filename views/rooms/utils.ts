@@ -30,11 +30,13 @@ export const globalStyles = `
   .range-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 2px; }
 `;
 
+// --- UTILITIES CƠ BẢN ---
 export const getYouTubeId = (url: string) => {
   if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  // Regex mạnh hơn để bắt dính mọi loại link (short, embed, watch)
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
   const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+  return (match && match[7].length === 11) ? match[7] : null;
 };
 
 export const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
@@ -45,6 +47,7 @@ export const formatTime = (seconds: number) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
+// --- ITUNES SEARCH ---
 export const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
@@ -86,41 +89,65 @@ export const getMascotMessage = (moodId: string) => {
   }
 };
 
-// --- LOGIC TÌM KIẾM VIDEO ONE-CLICK (Mới - Tối ưu đa Server) ---
-const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://api.piped.otter.sh",
-  "https://pipedapi.drgns.space",
-  "https://api.piped.privacy.com.de",
-  "https://pipedapi.smnz.de"
+// --- HYBRID ENGINE: TÌM KIẾM VIDEO SIÊU MẠNH MẼ ---
+// Danh sách Server hỗn hợp (Piped + Invidious) để tránh chết chùm
+const SEARCH_PROVIDERS = [
+  { type: 'piped', url: "https://api.piped.otter.sh" },     // Ổn định nhất hiện nay
+  { type: 'invidious', url: "https://inv.tux.pizza" },      // Invidious API (Backup 1)
+  { type: 'piped', url: "https://pipedapi.kavin.rocks" },   // Piped gốc (Thường quá tải)
+  { type: 'invidious', url: "https://invidious.jing.rocks" }, // Invidious API (Backup 2)
+  { type: 'piped', url: "https://pipedapi.drgns.space" }
 ];
 
 export const findYoutubeVideo = async (query: string) => {
-  for (const instance of PIPED_INSTANCES) {
+  for (const provider of SEARCH_PROVIDERS) {
     try {
-      console.log(`Đang thử tìm trên server: ${instance}...`);
+      console.log(`🔍 Đang thử tìm trên ${provider.type} server: ${provider.url}...`);
+      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); 
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // Tăng timeout lên 5s
 
-      const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=all`, {
-        signal: controller.signal
-      });
+      let fetchUrl = '';
+      if (provider.type === 'piped') {
+        fetchUrl = `${provider.url}/search?q=${encodeURIComponent(query)}&filter=all`;
+      } else {
+        // Cấu trúc API của Invidious khác Piped
+        fetchUrl = `${provider.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+      }
+
+      const response = await fetch(fetchUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
-      if (!response.ok) throw new Error(`Server ${instance} error`);
+      if (!response.ok) throw new Error(`Server ${provider.url} returned ${response.status}`);
       
       const data = await response.json();
-      const firstVideo = data.items.find((item: any) => item.type === 'stream');
-      
-      if (firstVideo) {
-        const videoId = firstVideo.url.split('/watch?v=')[1];
-        if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+      let videoId = null;
+
+      // Xử lý dữ liệu trả về tùy theo loại Server
+      if (provider.type === 'piped') {
+        const firstVideo = data.items.find((item: any) => item.type === 'stream');
+        if (firstVideo) {
+             // Trích xuất ID từ URL tương đối (/watch?v=ID)
+             videoId = firstVideo.url.split('v=')[1]; 
+        }
+      } else if (provider.type === 'invidious') {
+        // Invidious trả về mảng trực tiếp, lấy phần tử đầu tiên
+        if (data.length > 0) {
+            videoId = data[0].videoId;
+        }
       }
+
+      if (videoId) {
+        console.log(`✅ Đã tìm thấy video ID: ${videoId} từ ${provider.url}`);
+        return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+
     } catch (error) {
-      console.warn(`Thất bại với server ${instance}, đang thử server khác...`);
-      continue; 
+      console.warn(`❌ Thất bại với ${provider.url}:`, error);
+      continue; // Thử server tiếp theo ngay lập tức
     }
   }
-  console.error("Tất cả các server đều không phản hồi.");
+  
+  console.error("⛔ Tất cả các server đều không phản hồi hoặc không tìm thấy video.");
   return null;
 };
