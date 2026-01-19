@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus, Zap } from 'lucide-react';
+import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
+// Import thêm findYoutubeVideo vừa viết ở File 1
 import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase, findYoutubeVideo } from './utils';
 
-// --- MODAL XEM CHI TIẾT (Giữ nguyên) ---
+// --- GIỮ NGUYÊN DETAIL MODAL ---
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
         <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={onClose}></div>
@@ -38,11 +39,11 @@ export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClos
     </div>
 );
 
-// --- MODAL CHỈNH SỬA (TỐI ƯU HÓA: ONE-CLICK) ---
+// --- MODAL CHỈNH SỬA (ĐÃ TỐI ƯU ONE-CLICK) ---
 export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
-  const [isAnalyzing, setIsAnalyzing] = useState(false); // Dùng cho nút Magic Wand
-  const [isAutoFinding, setIsAutoFinding] = useState(false); // Dùng cho việc tự tìm link sau khi chọn nhạc
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAutoFinding, setIsAutoFinding] = useState(false); // State hiển thị loading khi đang tự tìm link
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -57,28 +58,28 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
      setSearchResults(results); setIsSearching(false);
   };
 
-  // --- LOGIC ONE-CLICK MAGIC ---
+  // --- LOGIC CHÍNH: TỰ ĐỘNG TÌM VÀ ĐIỀN LINK ---
   const handleSelectMusic = async (music: any) => {
      setIsSearchMode(false);
      
-     // 1. Điền thông tin cơ bản ngay lập tức
+     // 1. Điền ngay các thông tin có sẵn từ iTunes
      setFormData(prev => ({ 
          ...prev, 
          title: music.title, 
          artist: music.artist, 
          coverUrl: music.thumbnail, 
          year: music.year, 
-         trackUrl: "" // Tạm thời trống
+         trackUrl: "" // Reset URL về rỗng trước khi tìm
      }));
 
-     // 2. Bật chế độ "Đang tự tìm Link..."
+     // 2. Bắt đầu tìm kiếm ngầm
      setIsAutoFinding(true);
-
-     // 3. Gọi hàm tìm kiếm ngầm
+     
+     // Tạo từ khóa: Tên bài + Nghệ sĩ + Official Audio (để tìm bản chuẩn)
      const query = `${music.title} ${music.artist} official audio`;
      const foundUrl = await findYoutubeVideo(query);
 
-     // 4. Cập nhật URL nếu tìm thấy
+     // 3. Nếu tìm thấy, cập nhật vào formData
      if (foundUrl) {
          setFormData(prev => ({ ...prev, trackUrl: foundUrl }));
      }
@@ -118,7 +119,7 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
                     <div className="col-span-2 space-y-3"><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Bài Hát</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Nghệ Sĩ</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div></div>
                 </div>
                 
-                {/* --- KHU VỰC NHẬP LINK (Đã nâng cấp: Tự động hóa) --- */}
+                {/* --- KHU VỰC HIỂN THỊ LINK (CÓ TRẠNG THÁI LOADING) --- */}
                 <div>
                     <label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
                         <div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube Link</div>
@@ -128,7 +129,6 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
                         <input type="text" placeholder={isAutoFinding ? "Đang tìm video tốt nhất cho bạn..." : "Dán link video YouTube vào đây..."} value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className={`w-full bg-slate-900 border ${isAutoFinding ? 'border-amber-500/50 text-amber-500' : 'border-slate-700 text-blue-300'} rounded-lg p-2.5 text-xs focus:border-cyan-500 outline-none pr-10 transition-colors`} />
                         <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1.5 bg-cyan-500/10 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50" title="Auto-fill info from Link">{isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}</button>
                     </div>
-                    {!formData.trackUrl && !isAutoFinding && <p className="text-[9px] text-slate-500 mt-1 italic">* Hệ thống sẽ tự tìm link khi bạn chọn nhạc. Nếu chưa có, hãy dán thủ công.</p>}
                 </div>
 
                 <div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Ghi Chú</label><textarea value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-300 focus:border-cyan-500 outline-none h-24 resize-none" /></div>
@@ -137,6 +137,7 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
              )}
           </div>
           
+          {/* Nút Save sẽ bị vô hiệu hóa nếu chưa có link và chưa tìm xong */}
           {!isSearchMode && (<div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0"><button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button><button onClick={() => onSave(formData)} disabled={!formData.trackUrl && !isAutoFinding} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">{isAutoFinding ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {isAutoFinding ? "Đang xử lý..." : "Lưu Thay Đổi"}</button></div>)}
        </div>
     </div>
