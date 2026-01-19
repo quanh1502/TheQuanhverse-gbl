@@ -51,34 +51,67 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSelectMusic = async (music: any) => {
-     setIsSearchMode(false);
-     // Đặt trạng thái ban đầu, tạm thời để trackUrl rỗng
-     setFormData(prev => ({ 
-         ...prev, 
-         title: music.title, 
-         artist: music.artist, 
-         coverUrl: music.thumbnail, 
-         year: music.year, 
-         trackUrl: "" // Reset link cũ
-     }));
-     
-     setIsAutoFinding(true);
-     
-     // Thêm từ khóa "lyrics" hoặc "audio" để tăng độ chính xác tìm kiếm nhạc
-     const query = `${music.title} ${music.artist} official audio`;
-     
-     const foundUrl = await findYoutubeVideo(query);
-     
-     if (foundUrl) { 
-         setFormData(prev => ({ ...prev, trackUrl: foundUrl })); 
-     } else {
-         // (Tùy chọn) Có thể thông báo lỗi nhẹ nếu không tìm thấy
-         console.log("Không tìm thấy link tự động, vui lòng nhập tay.");
-     }
-     
-     setIsAutoFinding(false);
-  };
+ // --- UTILITIES ---
+
+const getYouTubeId = (url: string) => {
+
+  if (!url) return null;
+
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+
+  const match = url.match(regExp);
+
+  return (match && match[2].length === 11) ? match[2] : null;
+
+};
+
+
+
+const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+
+
+
+// Tìm kiếm nhạc trên iTunes
+
+const searchMusicDatabase = async (query: string) => {
+
+  try {
+
+    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
+
+    if (!response.ok) throw new Error("iTunes API Error");
+
+    const data = await response.json();
+
+    return data.results && data.results.length > 0 ? data.results.map((item: any) => ({
+
+      id: item.trackId,
+
+      title: item.trackName,
+
+      artist: item.artistName,
+
+      album: item.collectionName,
+
+      year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
+
+      thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
+
+      // Tạo link tìm kiếm Youtube từ tên bài hát + ca sĩ
+
+      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName + " lyrics")}`
+
+    })) : [];
+
+  } catch (error) {
+
+    console.error("Music Search Error:", error);
+
+    return [];
+
+  }
+
+};
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
   
   const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
