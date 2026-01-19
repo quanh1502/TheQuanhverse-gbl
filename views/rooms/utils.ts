@@ -88,29 +88,45 @@ export const getMascotMessage = (moodId: string) => {
 };
 // ... (Giữ nguyên các code cũ ở trên)
 
-// --- THÊM MỚI: Hàm tìm kiếm video YouTube tự động (Dùng Piped API miễn phí) ---
+// ... (Giữ nguyên các phần import và styles cũ ở trên) ...
+
+// --- LOGIC TÌM KIẾM VIDEO ONE-CLICK (Mới - Tối ưu đa Server) ---
+const PIPED_INSTANCES = [
+  "https://pipedapi.kavin.rocks", // Server gốc (thường quá tải)
+  "https://api.piped.otter.sh",   // Server dự phòng 1 (Rất ổn định)
+  "https://pipedapi.drgns.space", // Server dự phòng 2
+  "https://api.piped.privacy.com.de" // Server dự phòng 3
+];
+
 export const findYoutubeVideo = async (query: string) => {
-  try {
-    // Gọi API Piped (Dịch vụ trung gian search YouTube không cần API Key)
-    // Filter=all để tìm mọi thứ, nhưng ta sẽ lọc lấy stream (video)
-    const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=all`);
-    
-    if (!response.ok) throw new Error("Search API Error");
-    
-    const data = await response.json();
-    
-    // Lấy kết quả đầu tiên là video (loại bỏ playlist/channel)
-    const firstVideo = data.items.find((item: any) => item.type === 'stream');
-    
-    if (firstVideo) {
-      // Trả về link YouTube chuẩn để Player có thể chạy
-      // Link gốc từ API: /watch?v=ID -> Ta ghép thành full link
-      const videoId = firstVideo.url.split('/watch?v=')[1];
-      return `https://www.youtube.com/watch?v=${videoId}`;
+  // Thử lần lượt từng server trong danh sách
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      console.log(`Đang thử tìm trên server: ${instance}...`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout 3s mỗi server
+
+      const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=all`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error(`Server ${instance} error`);
+      
+      const data = await response.json();
+      // Tìm video loại 'stream' đầu tiên
+      const firstVideo = data.items.find((item: any) => item.type === 'stream');
+      
+      if (firstVideo) {
+        const videoId = firstVideo.url.split('/watch?v=')[1];
+        if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    } catch (error) {
+      console.warn(`Thất bại với server ${instance}, đang thử server khác...`);
+      continue; // Bỏ qua lỗi, thử server tiếp theo
     }
-    return null;
-  } catch (error) {
-    console.error("Auto-find Video Error:", error);
-    return null;
   }
+  
+  console.error("Tất cả các server đều không phản hồi.");
+  return null;
 };
