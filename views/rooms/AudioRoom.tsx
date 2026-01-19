@@ -43,9 +43,91 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  // Trong AudioRoom component
+const [isLooping, setIsLooping] = useState(false);
   
   const playerRef = useRef<any>(null);
+// Hàm cập nhật playCount lên Firebase
+const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
+    const shelf = shelves.find(s => s.id === shelfId);
+    if (!shelf) return;
+    
+    const updatedItems = shelf.items.map(i => {
+        if (i.id === track.id) {
+            return { ...i, playCount: (i.playCount || 0) + 1 };
+        }
+        return i;
+    });
+    
+    // Update thầm lặng không cần loading
+    await updateDoc(doc(db, "audio-shelves", String(shelfId)), { items: updatedItems });
+};
 
+// Sửa lại logic Player Event
+// Trong useEffect khởi tạo playerRef:
+'onStateChange': (event: any) => {
+    if (event.data === window.YT.PlayerState.PLAYING) {
+        setIsPlaying(true);
+        // Tùy chọn: Tăng playCount ngay khi bắt đầu nghe hoặc nghe được 50%
+        // Ở đây tôi đề xuất tăng khi bài hát kết thúc để tránh spam
+    }
+    if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
+    if (event.data === window.YT.PlayerState.ENDED) {
+        if (isLooping) {
+            event.target.playVideo(); // Loop lại
+            // Vẫn nên tăng playCount khi loop xong 1 vòng
+            if (activeTrack) {
+                 const shelfId = shelves.find(s => s.items.some(i => i.id === activeTrack.id))?.id;
+                 if(shelfId) updatePlayCount(activeTrack, shelfId);
+            }
+        } else {
+            handleNextTrack();
+        }
+    }
+},
+  const handleToggleFavoritePlayer = async () => {
+    if (!activeTrack) return;
+    const shelf = shelves.find(s => s.items.some(i => i.id === activeTrack.id));
+    if (!shelf) return;
+
+    const updatedItem = { ...activeTrack, isFavorite: !activeTrack.isFavorite };
+    
+    // 1. Update UI ngay lập tức (Optimistic update)
+    setActiveTrack(updatedItem);
+    
+    // 2. Update Firebase
+    const updatedItems = shelf.items.map(i => i.id === activeTrack.id ? updatedItem : i);
+    await updateDoc(doc(db, "audio-shelves", String(shelf.id)), { items: updatedItems });
+};
+  const spotlightItems = useMemo(() => {
+    // 1. Gom tất cả bài hát lại
+    const allItems: AlbumItem[] = [];
+    shelves.forEach(shelf => allItems.push(...shelf.items));
+
+    // 2. Lọc bài "Mới nhất" (Dựa trên ID - giả sử ID là timestamp)
+    const newest = [...allItems].sort((a, b) => b.id - a.id).slice(0, 5);
+
+    // 3. Lọc bài "Nghe nhiều nhất" (Dựa trên playCount)
+    const mostPlayed = [...allItems]
+        .filter(i => (i.playCount || 0) > 0) // Chỉ lấy bài đã từng nghe
+        .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+        .slice(0, 5);
+
+    // 4. Lọc bài "Yêu thích ngẫu nhiên" (để gợi nhắc kỷ niệm)
+    const favorites = allItems.filter(i => i.isFavorite);
+    const randomFavs = favorites.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+    // 5. Gộp lại và Xóa trùng (Dùng Set hoặc Map)
+    const combined = [...newest, ...mostPlayed, ...randomFavs];
+    const uniqueItems = Array.from(new Map(combined.map(item => [item.id, item])).values());
+
+    // 6. Sắp xếp hiển thị: Ưu tiên Favorite lên đầu hoặc xen kẽ
+    // Ở đây tôi sort ngẫu nhiên nhẹ để mỗi lần F5 là 1 trải nghiệm mới
+    return uniqueItems.sort(() => 0.5 - Math.random());
+}, [shelves]); // Chạy lại khi shelves thay đổi
+  
+
+  
   // 1. Load Data
   useEffect(() => {
     setIsLoading(true);
@@ -342,4 +424,11 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     </div>
   );
 };
+  <MiniPlayer 
+    currentTrack={activeTrack} 
+    // ... props cũ
+    isLooping={isLooping}
+    onToggleLoop={() => setIsLooping(!isLooping)}
+    onToggleFavorite={handleToggleFavoritePlayer}
+/>
 export default AudioRoom;
