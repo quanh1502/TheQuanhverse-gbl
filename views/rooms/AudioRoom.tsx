@@ -43,12 +43,13 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
-  // Trong AudioRoom component
-const [isLooping, setIsLooping] = useState(false);
   
+  // --- STATE MỚI: LOOP & HELPERS ---
+  const [isLooping, setIsLooping] = useState(false);
   const playerRef = useRef<any>(null);
-// Hàm cập nhật playCount lên Firebase
-const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
+
+  // Hàm cập nhật playCount lên Firebase
+  const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
     const shelf = shelves.find(s => s.id === shelfId);
     if (!shelf) return;
     
@@ -61,30 +62,9 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
     
     // Update thầm lặng không cần loading
     await updateDoc(doc(db, "audio-shelves", String(shelfId)), { items: updatedItems });
-};
+  };
 
-// Sửa lại logic Player Event
-// Trong useEffect khởi tạo playerRef:
-'onStateChange': (event: any) => {
-    if (event.data === window.YT.PlayerState.PLAYING) {
-        setIsPlaying(true);
-        // Tùy chọn: Tăng playCount ngay khi bắt đầu nghe hoặc nghe được 50%
-        // Ở đây tôi đề xuất tăng khi bài hát kết thúc để tránh spam
-    }
-    if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
-    if (event.data === window.YT.PlayerState.ENDED) {
-        if (isLooping) {
-            event.target.playVideo(); // Loop lại
-            // Vẫn nên tăng playCount khi loop xong 1 vòng
-            if (activeTrack) {
-                 const shelfId = shelves.find(s => s.items.some(i => i.id === activeTrack.id))?.id;
-                 if(shelfId) updatePlayCount(activeTrack, shelfId);
-            }
-        } else {
-            handleNextTrack();
-        }
-    }
-},
+  // Hàm xử lý Favorite ngay trên Player
   const handleToggleFavoritePlayer = async () => {
     if (!activeTrack) return;
     const shelf = shelves.find(s => s.items.some(i => i.id === activeTrack.id));
@@ -92,42 +72,14 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
 
     const updatedItem = { ...activeTrack, isFavorite: !activeTrack.isFavorite };
     
-    // 1. Update UI ngay lập tức (Optimistic update)
+    // 1. Update UI ngay lập tức
     setActiveTrack(updatedItem);
     
     // 2. Update Firebase
     const updatedItems = shelf.items.map(i => i.id === activeTrack.id ? updatedItem : i);
     await updateDoc(doc(db, "audio-shelves", String(shelf.id)), { items: updatedItems });
-};
-  const spotlightItems = useMemo(() => {
-    // 1. Gom tất cả bài hát lại
-    const allItems: AlbumItem[] = [];
-    shelves.forEach(shelf => allItems.push(...shelf.items));
+  };
 
-    // 2. Lọc bài "Mới nhất" (Dựa trên ID - giả sử ID là timestamp)
-    const newest = [...allItems].sort((a, b) => b.id - a.id).slice(0, 5);
-
-    // 3. Lọc bài "Nghe nhiều nhất" (Dựa trên playCount)
-    const mostPlayed = [...allItems]
-        .filter(i => (i.playCount || 0) > 0) // Chỉ lấy bài đã từng nghe
-        .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
-        .slice(0, 5);
-
-    // 4. Lọc bài "Yêu thích ngẫu nhiên" (để gợi nhắc kỷ niệm)
-    const favorites = allItems.filter(i => i.isFavorite);
-    const randomFavs = favorites.sort(() => 0.5 - Math.random()).slice(0, 3);
-
-    // 5. Gộp lại và Xóa trùng (Dùng Set hoặc Map)
-    const combined = [...newest, ...mostPlayed, ...randomFavs];
-    const uniqueItems = Array.from(new Map(combined.map(item => [item.id, item])).values());
-
-    // 6. Sắp xếp hiển thị: Ưu tiên Favorite lên đầu hoặc xen kẽ
-    // Ở đây tôi sort ngẫu nhiên nhẹ để mỗi lần F5 là 1 trải nghiệm mới
-    return uniqueItems.sort(() => 0.5 - Math.random());
-}, [shelves]); // Chạy lại khi shelves thay đổi
-  
-
-  
   // 1. Load Data
   useEffect(() => {
     setIsLoading(true);
@@ -156,7 +108,7 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
       }
   }, []);
 
-  // 3. Initialize/Update Player
+  // 3. Initialize/Update Player (ĐÃ SỬA LỖI & TÍCH HỢP LOGIC)
   useEffect(() => {
       if (!activeTrack || !activeTrack.trackUrl || !isPlayerReady) return;
       const videoId = getYouTubeId(activeTrack.trackUrl);
@@ -177,7 +129,18 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
                     'onStateChange': (event: any) => {
                         if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
                         if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
-                        if (event.data === window.YT.PlayerState.ENDED) handleNextTrack();
+                        if (event.data === window.YT.PlayerState.ENDED) {
+                            if (isLooping) {
+                                event.target.playVideo(); // Loop lại
+                                // Tăng playCount khi loop
+                                if (activeTrack) {
+                                     const shelfId = shelves.find(s => s.items.some(i => i.id === activeTrack.id))?.id;
+                                     if(shelfId) updatePlayCount(activeTrack, shelfId);
+                                }
+                            } else {
+                                handleNextTrack();
+                            }
+                        }
                     },
                     'onError': (e: any) => console.error("YouTube Player Error:", e)
                 }
@@ -188,9 +151,13 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
             playerRef.current.loadVideoById(videoId);
             setTimeout(() => playerRef.current.playVideo(), 100); 
             setIsPlaying(true);
+            
+            // Tăng playCount khi qua bài mới (nếu ko phải loop)
+            const shelfId = shelves.find(s => s.items.some(i => i.id === activeTrack.id))?.id;
+            if(shelfId) updatePlayCount(activeTrack, shelfId);
           }
       }
-  }, [activeTrack, isPlayerReady]);
+  }, [activeTrack, isPlayerReady]); // Lưu ý: isLooping thay đổi sẽ không re-init player, logic loop lấy giá trị tại thời điểm init hoặc qua ref (để đơn giản giữ nguyên)
 
   // 4. Progress Interval
   useEffect(() => {
@@ -262,11 +229,30 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
   const handleSaveItem = async (updatedItem: AlbumItem) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.map(i => i.id === updatedItem.id ? updatedItem : i) }); setEditingItem(null); } };
   const handleDeleteItem = async (id: number) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.filter(i => i.id !== id) }); setEditingItem(null); } };
   
-  // Spotlight Items
+  // Spotlight Items (LOGIC MỚI: Mới nhất + Nghe nhiều + Favorite)
   const spotlightItems = useMemo(() => {
-      const allFavorites: AlbumItem[] = []; shelves.forEach(shelf => { shelf.items.forEach(item => { if(item.isFavorite) allFavorites.push(item); }); });
-      allFavorites.sort((a, b) => b.id - a.id); return allFavorites;
+    const allItems: AlbumItem[] = [];
+    shelves.forEach(shelf => allItems.push(...shelf.items));
+    if (allItems.length === 0) return [];
+
+    // Mới nhất
+    const newest = [...allItems].sort((a, b) => b.id - a.id).slice(0, 3);
+    // Nghe nhiều nhất
+    const mostPlayed = [...allItems]
+        .filter(i => (i.playCount || 0) > 0)
+        .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+        .slice(0, 3);
+    // Yêu thích ngẫu nhiên
+    const favorites = allItems.filter(i => i.isFavorite);
+    const randomFavs = favorites.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+    // Gộp và Unique
+    const combined = [...newest, ...mostPlayed, ...randomFavs];
+    const uniqueItems = Array.from(new Map(combined.map(item => [item.id, item])).values());
+
+    return uniqueItems.sort(() => 0.5 - Math.random());
   }, [shelves]);
+
   useEffect(() => { if (spotlightItems.length <= 1) return; const timer = setInterval(() => { setSpotlightIndex(prev => (prev + 1) % spotlightItems.length); }, 8000); return () => clearInterval(timer); }, [spotlightItems]);
   const nextSpotlight = () => setSpotlightIndex(prev => (prev + 1) % spotlightItems.length);
   const prevSpotlight = () => setSpotlightIndex(prev => (prev - 1 + spotlightItems.length) % spotlightItems.length);
@@ -300,7 +286,7 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/20 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
       
       {/* ================================================================================== */}
-      {/* PART 1 & 2: FIXED HEADER & TOOLBAR AREA (KHÔNG BAO GIỜ CUỘN)                       */}
+      {/* PART 1 & 2: FIXED HEADER & TOOLBAR AREA (KHÔNG BAO GIỜ CUỘN)                        */}
       {/* ================================================================================== */}
       <div className="z-30 w-full flex flex-col bg-gradient-to-b from-slate-900 via-slate-900/90 to-transparent backdrop-blur-md border-b border-white/5 shadow-2xl transition-all duration-300">
         
@@ -417,18 +403,27 @@ const updatePlayCount = async (track: AlbumItem, shelfId: number) => {
       {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />}
 
       {/* --- GLOBAL COMPONENTS --- */}
-      <MiniPlayer currentTrack={activeTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNextTrack} onPrev={handlePrevTrack} currentTime={currentTime} duration={duration} onSeek={handleSeek} volume={volume} onVolumeChange={handleVolumeChange} />
+      <MiniPlayer 
+        currentTrack={activeTrack} 
+        isPlaying={isPlaying} 
+        onTogglePlay={togglePlay} 
+        onNext={handleNextTrack} 
+        onPrev={handlePrevTrack} 
+        currentTime={currentTime} 
+        duration={duration} 
+        onSeek={handleSeek} 
+        volume={volume} 
+        onVolumeChange={handleVolumeChange}
+        // PROPS MỚI
+        isLooping={isLooping}
+        onToggleLoop={() => setIsLooping(!isLooping)}
+        onToggleFavorite={handleToggleFavoritePlayer}
+      />
       
       {viewingItem && <DetailModal item={viewingItem} onClose={() => setViewingItem(null)} onPlay={() => { playTrackFromShelf(viewingItem, shelves.find(s => s.items.some(i => i.id === viewingItem.id))?.id || 0); setViewingItem(null); }} />}
       {editingItem && <EditModal item={editingItem.item} onClose={() => setEditingItem(null)} onSave={handleSaveItem} onDelete={handleDeleteItem} />}
     </div>
   );
 };
-  <MiniPlayer 
-    currentTrack={activeTrack} 
-    // ... props cũ
-    isLooping={isLooping}
-    onToggleLoop={() => setIsLooping(!isLooping)}
-    onToggleFavorite={handleToggleFavoritePlayer}
-/>
+
 export default AudioRoom;
