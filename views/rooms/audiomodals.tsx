@@ -2,10 +2,10 @@ import React, { useState, useRef } from 'react';
 import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
 import { analyzeYoutubeMetadata } from '../../services/geminiService';
-// Import thêm findYoutubeVideo vừa viết ở File 1
+// Import từ utils, KHÔNG khai báo lại bên dưới
 import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase, findYoutubeVideo } from './utils';
 
-// --- GIỮ NGUYÊN DETAIL MODAL ---
+// --- DETAIL MODAL (Giữ nguyên) ---
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 perspective-[1200px]">
         <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={onClose}></div>
@@ -39,11 +39,11 @@ export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClos
     </div>
 );
 
-// --- MODAL CHỈNH SỬA (ĐÃ TỐI ƯU ONE-CLICK) ---
+// --- MODAL CHỈNH SỬA ---
 export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isAutoFinding, setIsAutoFinding] = useState(false); // State hiển thị loading khi đang tự tìm link
+  const [isAutoFinding, setIsAutoFinding] = useState(false); // Trạng thái tìm kiếm tự động
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -51,69 +51,41 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
- // --- UTILITIES ---
+  // --- HÀM TÌM KIẾM NHẠC TRÊN ITUNES ---
+  const handleMusicSearch = async () => {
+     if(!searchQuery.trim()) return;
+     setIsSearching(true); setSearchResults([]); 
+     const results = await searchMusicDatabase(searchQuery);
+     setSearchResults(results); setIsSearching(false);
+  };
 
-const getYouTubeId = (url: string) => {
+  // --- HÀM CHỌN NHẠC VÀ TỰ ĐỘNG TÌM LINK YOUTUBE ---
+  const handleSelectMusic = async (music: any) => {
+     setIsSearchMode(false);
+     // Điền thông tin metadata, reset link cũ
+     setFormData(prev => ({ 
+         ...prev, 
+         title: music.title, 
+         artist: music.artist, 
+         coverUrl: music.thumbnail, 
+         year: music.year, 
+         trackUrl: "" 
+     }));
 
-  if (!url) return null;
+     // Bắt đầu tìm kiếm YouTube
+     setIsAutoFinding(true);
+     const query = `${music.title} ${music.artist} official audio`;
+     const foundUrl = await findYoutubeVideo(query);
+     
+     if (foundUrl) { 
+         setFormData(prev => ({ ...prev, trackUrl: foundUrl })); 
+     }
+     setIsAutoFinding(false);
+  };
 
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-
-  const match = url.match(regExp);
-
-  return (match && match[2].length === 11) ? match[2] : null;
-
-};
-
-
-
-const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-
-
-
-// Tìm kiếm nhạc trên iTunes
-
-const searchMusicDatabase = async (query: string) => {
-
-  try {
-
-    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
-
-    if (!response.ok) throw new Error("iTunes API Error");
-
-    const data = await response.json();
-
-    return data.results && data.results.length > 0 ? data.results.map((item: any) => ({
-
-      id: item.trackId,
-
-      title: item.trackName,
-
-      artist: item.artistName,
-
-      album: item.collectionName,
-
-      year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
-
-      thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-
-      // Tạo link tìm kiếm Youtube từ tên bài hát + ca sĩ
-
-      youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(item.trackName + " " + item.artistName + " lyrics")}`
-
-    })) : [];
-
-  } catch (error) {
-
-    console.error("Music Search Error:", error);
-
-    return [];
-
-  }
-
-};
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
   
+  // Hàm phân tích metadata từ link YouTube (khi dán tay)
   const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
 
   return (
@@ -144,7 +116,6 @@ const searchMusicDatabase = async (query: string) => {
                     <div className="col-span-2 space-y-3"><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Bài Hát</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Nghệ Sĩ</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div></div>
                 </div>
                 
-                {/* --- KHU VỰC HIỂN THỊ LINK (CÓ TRẠNG THÁI LOADING) --- */}
                 <div>
                     <label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
                         <div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube Link</div>
@@ -162,7 +133,6 @@ const searchMusicDatabase = async (query: string) => {
              )}
           </div>
           
-          {/* Nút Save sẽ bị vô hiệu hóa nếu chưa có link và chưa tìm xong */}
           {!isSearchMode && (<div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0"><button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button><button onClick={() => onSave(formData)} disabled={!formData.trackUrl && !isAutoFinding} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">{isAutoFinding ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {isAutoFinding ? "Đang xử lý..." : "Lưu Thay Đổi"}</button></div>)}
        </div>
     </div>
