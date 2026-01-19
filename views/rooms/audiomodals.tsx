@@ -1,9 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus } from 'lucide-react';
+import { X, Calendar, Play, Heart, Disc, Edit3, Search, Upload, Link as LinkIcon, Wand2, Trash2, Save, Music, Loader2, Plus, ExternalLink } from 'lucide-react';
 import { AlbumItem } from '../../contexts/DataContext';
-import { analyzeYoutubeMetadata } from '../../services/geminiService';
-// Import từ utils, KHÔNG khai báo lại bên dưới
-import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase, findYoutubeVideo } from './utils';
+import { getYouTubeId, getYouTubeThumbnail, searchMusicDatabase } from './utils';
 
 // --- DETAIL MODAL (Giữ nguyên) ---
 export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClose: () => void, onPlay: () => void }) => (
@@ -32,26 +30,25 @@ export const DetailModal = ({ item, onClose, onPlay }: { item: AlbumItem, onClos
                           <span className="pl-2">Phát Nhạc Ngay</span>
                           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white group-hover:text-cyan-600 transition-colors"><Play size={18} fill="currentColor" /></div> 
                       </button>
-                  ) : ( <div className="text-center text-slate-500 text-sm italic py-4">No link available</div> )}
+                  ) : ( <div className="text-center text-slate-500 text-sm italic py-4">Chưa có link nhạc</div> )}
                 </div>
             </div>
         </div>
     </div>
 );
 
-// --- MODAL CHỈNH SỬA ---
+// --- MODAL CHỈNH SỬA (SMART PASTE) ---
 export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem, onClose: () => void, onSave: (item: AlbumItem) => void, onDelete: (id: number) => void }) => {
   const [formData, setFormData] = useState<AlbumItem>({ ...item });
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isAutoFinding, setIsAutoFinding] = useState(false); // Trạng thái tìm kiếm tự động
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State cho tìm kiếm iTunes
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // --- HÀM TÌM KIẾM NHẠC TRÊN ITUNES ---
+  // 1. Tìm nhạc iTunes
   const handleMusicSearch = async () => {
      if(!searchQuery.trim()) return;
      setIsSearching(true); setSearchResults([]); 
@@ -59,43 +56,45 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
      setSearchResults(results); setIsSearching(false);
   };
 
-  // --- HÀM CHỌN NHẠC VÀ TỰ ĐỘNG TÌM LINK YOUTUBE ---
-  const handleSelectMusic = async (music: any) => {
+  // 2. Chọn nhạc -> Điền thông tin -> ĐỂ TRỐNG LINK
+  const handleSelectMusic = (music: any) => {
      setIsSearchMode(false);
-     // Điền thông tin metadata, reset link cũ
      setFormData(prev => ({ 
          ...prev, 
          title: music.title, 
          artist: music.artist, 
          coverUrl: music.thumbnail, 
          year: music.year, 
-         trackUrl: "" 
+         trackUrl: "" // Reset link để người dùng paste link chuẩn
      }));
-
-     // Bắt đầu tìm kiếm YouTube
-     setIsAutoFinding(true);
-     const query = `${music.title} ${music.artist} official audio`;
-     const foundUrl = await findYoutubeVideo(query);
-     
-     if (foundUrl) { 
-         setFormData(prev => ({ ...prev, trackUrl: foundUrl })); 
-     }
-     setIsAutoFinding(false);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData(prev => ({ ...prev, coverUrl: reader.result as string })); reader.readAsDataURL(file); } };
   
-  // Hàm phân tích metadata từ link YouTube (khi dán tay)
-  const handleAutoFill = async () => { if (!formData.trackUrl) return; setIsAnalyzing(true); try { const ytId = getYouTubeId(formData.trackUrl); if (ytId) setFormData(prev => ({ ...prev, coverUrl: getYouTubeThumbnail(ytId) })); const metadata = await analyzeYoutubeMetadata(formData.trackUrl); if (metadata) setFormData(prev => ({ ...prev, title: metadata.title || prev.title, artist: metadata.artist || prev.artist, year: metadata.year || prev.year })); } catch (e) { console.error(e); } finally { setIsAnalyzing(false); } };
+  // 3. Xử lý khi Paste Link -> Tự động lấy Thumbnail
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newUrl = e.target.value;
+      setFormData(prev => ({ ...prev, trackUrl: newUrl }));
+      
+      // Nếu là link YouTube hợp lệ -> Cập nhật ảnh bìa (nếu chưa có hoặc muốn ghi đè)
+      const ytId = getYouTubeId(newUrl);
+      if (ytId) {
+          const newThumb = getYouTubeThumbnail(ytId);
+          // Chỉ cập nhật ảnh nếu người dùng chưa upload ảnh riêng hoặc muốn dùng ảnh YouTube
+          // Ở đây ta ưu tiên ảnh YouTube cho tiện
+          setFormData(prev => ({ ...prev, coverUrl: newThumb }));
+      }
+  };
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose}></div>
        <div className="relative bg-[#0f172a] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
+          {/* HEADER */}
           <div className="p-5 bg-white/5 border-b border-white/5 flex justify-between items-center shrink-0">
              <h3 className="text-lg font-bold text-white flex items-center gap-2">{isSearchMode ? <Disc size={18} className="text-cyan-400" /> : <Edit3 size={18} className="text-cyan-400" />} {isSearchMode ? "Tìm nhạc (iTunes)" : "Chỉnh sửa đĩa"}</h3>
              <div className="flex items-center gap-2">
-                {!isSearchMode && (<button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Search Database"><Search size={18} /></button>)}
+                {!isSearchMode && (<button onClick={() => setIsSearchMode(true)} className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Tìm thông tin bài hát"><Search size={18} /></button>)}
                 <button onClick={() => setFormData(p => ({...p, isFavorite: !p.isFavorite}))} className={`p-2 rounded-full transition-colors ${formData.isFavorite ? 'text-amber-400 bg-amber-400/10' : 'text-slate-500 hover:text-amber-400 hover:bg-white/5'}`}>{formData.isFavorite ? <Heart size={18} fill="currentColor" /> : <Heart size={18} />}</button>
                 <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
                 <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20}/></button>
@@ -104,26 +103,30 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
           
           <div className="p-6 space-y-5 overflow-y-auto scrollbar-hide relative min-h-[400px]">
              {isSearchMode ? (
+                // GIAO DIỆN TÌM KIẾM ITUNES
                 <div className="space-y-4 animate-fade-in">
                    <div className="flex gap-2"><input autoFocus type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleMusicSearch()} placeholder="Tên bài hát, ca sĩ..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-10 text-sm text-white focus:border-cyan-500 outline-none" /><button onClick={handleMusicSearch} disabled={isSearching} className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors min-w-[80px] flex justify-center items-center">{isSearching ? <Loader2 size={16} className="animate-spin" /> : "Tìm"}</button></div>
                    <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">{searchResults.map((music) => ( <div key={music.id} onClick={() => handleSelectMusic(music)} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer group transition-colors border border-transparent hover:border-white/10 items-center"><img src={music.thumbnail} alt="" className="w-12 h-12 object-cover rounded-lg shadow-md" /><div className="flex-1 overflow-hidden"><h4 className="text-sm font-bold text-slate-200 truncate">{music.title}</h4><p className="text-xs text-slate-500 mt-0.5 truncate">{music.artist}</p></div><Plus size={18} className="text-slate-600 group-hover:text-cyan-400"/></div>))}</div>
                    <button onClick={() => setIsSearchMode(false)} className="w-full py-2 text-xs text-slate-500 hover:text-white uppercase tracking-wider font-medium mt-4">Hủy tìm kiếm</button>
                 </div>
              ) : (
+             // GIAO DIỆN NHẬP LIỆU CHÍNH
              <>
                 <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-1 relative group aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-700 cursor-pointer" onClick={() => fileInputRef.current?.click()}>{formData.coverUrl ? <img src={formData.coverUrl} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2"><Upload size={20} /><span className="text-[10px]">Upload Cover</span></div>}<input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" /></div>
                     <div className="col-span-2 space-y-3"><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Bài Hát</label><input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div><div><label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 block">Nghệ Sĩ</label><input type="text" value={formData.artist} onChange={(e) => setFormData({...formData, artist: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 outline-none transition-colors" /></div></div>
                 </div>
                 
+                {/* INPUT LINK YOUTUBE */}
                 <div>
                     <label className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
-                        <div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube Link</div>
-                        {isAutoFinding && <span className="text-[10px] text-amber-400 animate-pulse flex items-center gap-1"><Loader2 size={10} className="animate-spin"/> Đang tự tìm link...</span>}
+                        <div className="flex items-center gap-1"><LinkIcon size={10} /> Youtube Link (Dán link để phát trong App)</div>
+                        {/* Nút tiện ích mở Youtube để tìm nhanh */}
+                        <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(formData.title + " " + formData.artist)}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white cursor-pointer"><Search size={10}/> Tìm trên YT</a>
                     </label>
                     <div className="relative">
-                        <input type="text" placeholder={isAutoFinding ? "Đang tìm video tốt nhất cho bạn..." : "Dán link video YouTube vào đây..."} value={formData.trackUrl || ''} onChange={(e) => setFormData({...formData, trackUrl: e.target.value})} className={`w-full bg-slate-900 border ${isAutoFinding ? 'border-amber-500/50 text-amber-500' : 'border-slate-700 text-blue-300'} rounded-lg p-2.5 text-xs focus:border-cyan-500 outline-none pr-10 transition-colors`} />
-                        <button onClick={handleAutoFill} disabled={!formData.trackUrl || isAnalyzing} className="absolute right-1 top-1 p-1.5 bg-cyan-500/10 rounded hover:bg-cyan-500 hover:text-white text-cyan-500 transition-colors disabled:opacity-50" title="Auto-fill info from Link">{isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}</button>
+                        <input type="text" placeholder="Dán link video YouTube (ví dụ: https://youtu.be/...)" value={formData.trackUrl || ''} onChange={handleUrlChange} className="w-full bg-slate-900 border border-slate-700 text-blue-300 rounded-lg p-2.5 text-xs focus:border-cyan-500 outline-none transition-colors" />
+                        {getYouTubeId(formData.trackUrl || '') && <div className="absolute right-2 top-2 text-green-500"><Wand2 size={16} /></div>}
                     </div>
                 </div>
 
@@ -133,7 +136,7 @@ export const EditModal = ({ item, onClose, onSave, onDelete }: { item: AlbumItem
              )}
           </div>
           
-          {!isSearchMode && (<div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0"><button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button><button onClick={() => onSave(formData)} disabled={!formData.trackUrl && !isAutoFinding} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">{isAutoFinding ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {isAutoFinding ? "Đang xử lý..." : "Lưu Thay Đổi"}</button></div>)}
+          {!isSearchMode && (<div className="p-4 bg-white/5 border-t border-white/5 flex gap-3 shrink-0"><button onClick={() => onDelete(formData.id)} className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"><Trash2 size={18} /></button><button onClick={() => onSave(formData)} disabled={!formData.trackUrl && !formData.title} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold py-3 transition-all shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={18} /> Lưu Thay Đổi</button></div>)}
        </div>
     </div>
   );
