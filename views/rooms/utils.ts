@@ -1,5 +1,4 @@
-// src/utils/audioRoomUtils.ts
-import { AlbumItem } from '../contexts/DataContext'; // Đảm bảo đường dẫn import đúng
+import { AlbumItem } from '../../contexts/DataContext';
 
 export const globalStyles = `
   @keyframes flyInCircle {
@@ -86,25 +85,22 @@ export const getMascotMessage = (moodId: string) => {
     default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
-// ... (Giữ nguyên các code cũ ở trên)
-
-// ... (Giữ nguyên các phần import và styles cũ ở trên) ...
 
 // --- LOGIC TÌM KIẾM VIDEO ONE-CLICK (Mới - Tối ưu đa Server) ---
 const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks", // Server gốc (thường quá tải)
-  "https://api.piped.otter.sh",   // Server dự phòng 1 (Rất ổn định)
-  "https://pipedapi.drgns.space", // Server dự phòng 2
-  "https://api.piped.privacy.com.de" // Server dự phòng 3
+  "https://pipedapi.kavin.rocks",
+  "https://api.piped.otter.sh",
+  "https://pipedapi.drgns.space",
+  "https://api.piped.privacy.com.de",
+  "https://pipedapi.smnz.de"
 ];
 
 export const findYoutubeVideo = async (query: string) => {
-  // Thử lần lượt từng server trong danh sách
   for (const instance of PIPED_INSTANCES) {
     try {
       console.log(`Đang thử tìm trên server: ${instance}...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout 3s mỗi server
+      const timeoutId = setTimeout(() => controller.abort(), 3000); 
 
       const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=all`, {
         signal: controller.signal
@@ -114,7 +110,6 @@ export const findYoutubeVideo = async (query: string) => {
       if (!response.ok) throw new Error(`Server ${instance} error`);
       
       const data = await response.json();
-      // Tìm video loại 'stream' đầu tiên
       const firstVideo = data.items.find((item: any) => item.type === 'stream');
       
       if (firstVideo) {
@@ -123,10 +118,9 @@ export const findYoutubeVideo = async (query: string) => {
       }
     } catch (error) {
       console.warn(`Thất bại với server ${instance}, đang thử server khác...`);
-      continue; // Bỏ qua lỗi, thử server tiếp theo
+      continue; 
     }
   }
-  
   console.error("Tất cả các server đều không phản hồi.");
   return null;
 };
