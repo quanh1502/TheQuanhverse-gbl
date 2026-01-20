@@ -77,12 +77,6 @@ const App: React.FC = () => {
     </DataProvider>
   );
 };
-// Nơi bạn đang sử dụng AudioRoom
-{isAudioRoomOpen && (
-    <AudioRoom 
-        initialMood={selectedMood} 
-        onExit={() => setIsAudioRoomOpen(false)} // <--- Thêm dòng này để tắt phòng
-    />
-)}
+
 
 export default App;
