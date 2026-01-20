@@ -109,21 +109,120 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
         </div>
     );
 };
-// --- SPOTLIGHT HERO ---
+// src/rooms/audiosubComponents.tsx
+
+// ... (Các import cũ giữ nguyên)
+
+// --- SPOTLIGHT HERO (NEW VERSION) ---
 export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentIndex }: any) => {
     if (!item) return null;
+
+    // Kiểm tra xem bài này có phải bài "Hot" (nhiều lượt nghe + yêu thích) không để đổi màu viền
+    const isTrendingHit = item.isFavorite && ((item as any).playCount > 10 || item.description?.includes("Gợi ý"));
+
     return (
-        <div className="relative w-full overflow-hidden rounded-3xl mb-12 group cursor-pointer shadow-2xl animate-appear-from-void min-h-[350px]">
-             {total > 1 && ( <><div onClick={(e) => {e.stopPropagation(); onPrev();}} className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-black/30 hover:bg-black/60 backdrop-blur-md rounded-full text-white/50 hover:text-white transition-all cursor-pointer hover:scale-110"><ChevronLeft size={24} /></div><div onClick={(e) => {e.stopPropagation(); onNext();}} className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-black/30 hover:bg-black/60 backdrop-blur-md rounded-full text-white/50 hover:text-white transition-all cursor-pointer hover:scale-110"><ChevronRight size={24} /></div></> )}
-            <div key={`bg-${item.id}`} className="absolute inset-0 z-0 transition-opacity duration-700"><img src={item.coverUrl} alt="" className="w-full h-full object-cover blur-[80px] opacity-60 scale-150 animate-pulse-glow" /><div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/60 to-transparent"></div><div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div></div>
-            <div key={item.id} className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-end md:items-center gap-6 md:gap-10 h-full animate-slide-in" onClick={onClick}>
-                <div className="w-40 h-40 md:w-56 md:h-56 shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-lg overflow-hidden transform transition-transform duration-500 group-hover:scale-105 group-hover:rotate-2 border border-white/10"><img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover" /></div>
-                <div className="flex-1 space-y-3 pb-2"><div className="flex items-center gap-2 mb-2"><span className="bg-cyan-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-[0_0_15px_rgba(6,182,212,0.6)]"><Sparkles size={10} fill="currentColor"/> Editor's Choice</span>{total > 1 && <span className="text-[10px] text-slate-400 font-mono tracking-widest">{currentIndex + 1} / {total}</span>}</div><h2 className="text-3xl md:text-5xl font-bold text-white leading-tight drop-shadow-lg group-hover:text-cyan-200 transition-colors line-clamp-2">{item.title}</h2><div className="flex items-center gap-3 text-lg md:text-xl text-slate-300 font-medium"><span>{item.artist}</span><span className="w-1 h-1 rounded-full bg-slate-500"></span><span className="text-sm font-mono opacity-70">{item.year}</span></div>{item.description && ( <p className="text-sm text-slate-400 italic max-w-xl line-clamp-2 opacity-80 border-l-2 border-cyan-500/50 pl-3 mt-2">"{item.description}"</p> )}<div className="pt-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300"><div className="w-12 h-12 rounded-full bg-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30"><Play size={24} fill="currentColor" className="ml-1"/></div><span className="text-sm font-bold text-white uppercase tracking-wider">Nghe Ngay</span></div></div>
+        <div className="relative w-full mb-12 group cursor-pointer animate-appear-from-void min-h-[350px] flex items-center justify-center py-4">
+            
+            {/* Navigation Buttons (Nổi lên trên hẳn) */}
+            {total > 1 && (
+                <>
+                    <div onClick={(e) => {e.stopPropagation(); onPrev();}} className="absolute left-0 md:-left-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110">
+                        <ChevronLeft size={24} />
+                    </div>
+                    <div onClick={(e) => {e.stopPropagation(); onNext();}} className="absolute right-0 md:-right-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110">
+                        <ChevronRight size={24} />
+                    </div>
+                </>
+            )}
+
+            {/* --- THE CARD CONTAINER --- */}
+            {/* Đây là phần tạo ra "Khối nổi", "Viền sáng" và "Tách bạch background" */}
+            <div 
+                onClick={onClick}
+                className={`
+                    relative w-full max-w-5xl overflow-hidden rounded-3xl 
+                    border-[3px] ${isTrendingHit ? 'border-amber-400/50' : 'border-cyan-400/30'} 
+                    bg-slate-900/40 backdrop-blur-xl 
+                    shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)]
+                    hover:shadow-[0_30px_80px_-10px_rgba(6,182,212,0.3)]
+                    hover:border-cyan-400/60
+                    transition-all duration-500 transform hover:-translate-y-2
+                `}
+            >
+                {/* Background Gradient động bên trong thẻ để tạo độ sáng */}
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-transparent opacity-50"></div>
+                
+                {/* Ảnh nền mờ (Blur background) chỉ nằm gọn trong thẻ */}
+                <div key={`bg-${item.id}`} className="absolute inset-0 z-0">
+                    <img src={item.coverUrl} alt="" className="w-full h-full object-cover blur-[50px] opacity-40 scale-125 animate-pulse-glow" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
+                </div>
+
+                {/* --- NỘI DUNG CHÍNH --- */}
+                <div key={item.id} className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12 h-full animate-slide-in">
+                    
+                    {/* Ảnh bìa đĩa than (Album Art) */}
+                    <div className="relative w-48 h-48 md:w-64 md:h-64 shrink-0 group-hover:scale-105 transition-transform duration-500">
+                        <div className={`absolute inset-0 rounded-full ${isTrendingHit ? 'bg-amber-500' : 'bg-cyan-400'} blur-2xl opacity-20 group-hover:opacity-40 transition-opacity`}></div>
+                        <img 
+                            src={item.coverUrl} 
+                            alt={item.title} 
+                            className={`w-full h-full object-cover rounded-lg shadow-2xl border-2 ${isTrendingHit ? 'border-amber-400/50' : 'border-white/20'} rotate-3 group-hover:rotate-6 transition-all duration-500`} 
+                        />
+                        {/* Huy hiệu Play Count hoặc Trending */}
+                        <div className="absolute -bottom-4 -right-4 bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/10 shadow-lg flex items-center gap-1">
+                            <Sparkles size={12} className={isTrendingHit ? "text-amber-400" : "text-cyan-400"} />
+                            {isTrendingHit ? "Trending Hit" : "Suggested"}
+                        </div>
+                    </div>
+
+                    {/* Text Info */}
+                    <div className="flex-1 text-center md:text-left space-y-4">
+                        <div className="flex items-center justify-center md:justify-start gap-3">
+                            <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg border ${isTrendingHit ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'}`}>
+                                <Music size={12} /> {isTrendingHit ? "Top Pick" : "New Mix"}
+                            </span>
+                            {total > 1 && <span className="text-[10px] text-slate-400 font-mono tracking-widest">{currentIndex + 1} / {total}</span>}
+                        </div>
+                        
+                        <h2 className="text-3xl md:text-5xl font-black text-white leading-tight drop-shadow-lg tracking-tight line-clamp-2 group-hover:text-cyan-200 transition-colors">
+                            {item.title}
+                        </h2>
+                        
+                        <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-lg text-slate-300 font-medium">
+                            <span className="text-cyan-100">{item.artist}</span>
+                            <span className="hidden md:inline w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                            <span className="text-sm font-mono opacity-60 bg-white/5 px-2 py-0.5 rounded">{item.year || "Unknown"}</span>
+                        </div>
+
+                        {item.description && ( 
+                            <div className="relative mt-2 p-4 bg-white/5 rounded-xl border-l-4 border-cyan-500/50 text-sm text-slate-300 italic max-w-xl text-left">
+                                "{item.description}"
+                            </div> 
+                        )}
+
+                        <div className="pt-6 flex items-center justify-center md:justify-start gap-4 opacity-90 group-hover:opacity-100 transition-all duration-300">
+                            <button className="flex items-center gap-2 bg-white text-slate-950 px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
+                                <Play size={20} fill="currentColor" /> PHÁT NGAY
+                            </button>
+                            {item.isFavorite && <div className="p-3 bg-amber-500/20 rounded-full text-amber-400 border border-amber-500/30"><Heart size={20} fill="currentColor"/></div>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Pagination Dots */}
+                {total > 1 && ( 
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 p-2 bg-black/20 rounded-full backdrop-blur-sm">
+                        {Array.from({ length: Math.min(total, 5) }).map((_, idx) => ( 
+                            <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === (currentIndex % 5) ? 'bg-cyan-400 w-6' : 'bg-white/30 w-1.5'}`}></div> 
+                        ))}
+                    </div> 
+                )}
             </div>
-            {total > 1 && ( <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">{Array.from({ length: Math.min(total, 5) }).map((_, idx) => ( <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === (currentIndex % 5) ? 'bg-cyan-400 w-4' : 'bg-white/20'}`}></div> ))}</div> )}
         </div>
     );
 };
+
 
 // --- JEWEL CASE 3D ---
 export const JewelCase3D: React.FC<{ item: AlbumItem; isPlayingThis?: boolean; onClick: () => void; onEdit: () => void; }> = ({ item, isPlayingThis, onClick, onEdit }) => {
