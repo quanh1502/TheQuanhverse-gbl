@@ -90,3 +90,39 @@ export const getMascotMessage = (moodId: string) => {
     default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
+// src/rooms/utils.ts (Thêm vào cuối file)
+
+import { AlbumItem } from '../../contexts/DataContext';
+
+// Hàm tính điểm để sắp xếp bài hát lên bảng gợi ý
+export const getSmartRecommendations = (allTracks: AlbumItem[], limit: number = 5) => {
+  const now = Date.now();
+  const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+  const scoredTracks = allTracks.map(track => {
+    let score = 0;
+
+    // 1. Điểm lượt nghe (Giả sử bạn có trường playCount, nếu chưa có hãy mặc định là 0 hoặc random nhẹ để test)
+    // Nếu chưa có field playCount trong data, tạm thời coi như track.id là seed để random (hoặc bạn cần thêm field này vào DB)
+    const plays = (track as any).playCount || 0; 
+    score += plays * 1; 
+
+    // 2. Điểm độ mới (Ưu tiên bài thêm trong vòng 1 tuần)
+    // Giả sử có trường addedAt, nếu không thì dùng logic ID lớn = mới hơn (tạm thời)
+    const isNew = (track as any).addedAt ? (now - (track as any).addedAt < ONE_WEEK) : false;
+    if (isNew) score += 50; // Cộng điểm cực lớn cho bài mới
+
+    // 3. Điểm Yêu thích (Boost)
+    // Nếu bài được nghe nhiều MÀ CÒN là yêu thích -> Tăng gấp đôi sức mạnh
+    if (track.isFavorite) {
+      score = score * 1.5 + 20; 
+    }
+
+    return { ...track, _score: score };
+  });
+
+  // Sắp xếp giảm dần theo điểm và lấy top
+  return scoredTracks
+    .sort((a, b) => b._score - a._score)
+    .slice(0, limit);
+};
