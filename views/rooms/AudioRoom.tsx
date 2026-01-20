@@ -1,6 +1,6 @@
 // src/rooms/AudioRoom.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Play, Sparkles } from 'lucide-react';
+import { Headphones, Check, Edit3, Trash2, Plus, ArrowLeft, LayoutGrid, Library, Filter, ArrowUpDown, Play, Sparkles, LogOut } from 'lucide-react';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { db } from '../../services/firebase';
@@ -13,7 +13,13 @@ import { DetailModal, EditModal } from './audiomodals';
 
 declare global { interface Window { onYouTubeIframeAPIReady: () => void; YT: any; } }
 
-const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
+// --- THÊM INTERFACE CHO PROPS (để nhận hàm thoát) ---
+interface AudioRoomProps {
+    initialMood?: string;
+    onExit: () => void; // Hàm thoát được truyền từ component cha
+}
+
+const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   // --- STATE QUẢN LÝ DỮ LIỆU ---
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,36 +50,31 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const [volume, setVolume] = useState(100);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   
-  // State Loop & Helpers
+  // --- FIX LỖI LOOP: Dùng Ref để lưu trạng thái loop mới nhất ---
   const [isLooping, setIsLooping] = useState(false);
+  const isLoopingRef = useRef(isLooping); // Ref giữ giá trị loop thực tế
   const playerRef = useRef<any>(null);
+
+  // Luôn đồng bộ Ref với State
+  useEffect(() => {
+    isLoopingRef.current = isLooping;
+  }, [isLooping]);
 
   // --- LOGIC: REAL-TIME UPDATE ---
 
   // 1. Cập nhật playCount lên Firebase (Chạy ngầm)
   const updatePlayCount = async (track: AlbumItem) => {
-    // Tìm shelf chứa bài hát này
     const shelf = shelves.find(s => s.items.some(i => i.id === track.id));
     if (!shelf) return;
     
     const updatedItems = shelf.items.map(i => {
         if (i.id === track.id) {
-            // Tăng playCount và cập nhật thời gian nghe cuối
-            return { 
-                ...i, 
-                playCount: (i.playCount || 0) + 1,
-                lastPlayed: Date.now() 
-            };
+            return { ...i, playCount: (i.playCount || 0) + 1, lastPlayed: Date.now() };
         }
         return i;
     });
     
-    // Update thầm lặng không hiển thị loading
-    try {
-        await updateDoc(doc(db, "audio-shelves", String(shelf.id)), { items: updatedItems });
-    } catch (e) {
-        console.error("Failed to update play count", e);
-    }
+    try { await updateDoc(doc(db, "audio-shelves", String(shelf.id)), { items: updatedItems }); } catch (e) { console.error(e); }
   };
 
   // 2. Xử lý Favorite ngay trên Player
@@ -81,13 +82,8 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
     if (!activeTrack) return;
     const shelf = shelves.find(s => s.items.some(i => i.id === activeTrack.id));
     if (!shelf) return;
-
     const updatedItem = { ...activeTrack, isFavorite: !activeTrack.isFavorite };
-    
-    // Update UI ngay lập tức
     setActiveTrack(updatedItem);
-    
-    // Update Firebase
     const updatedItems = shelf.items.map(i => i.id === activeTrack.id ? updatedItem : i);
     await updateDoc(doc(db, "audio-shelves", String(shelf.id)), { items: updatedItems });
   };
@@ -115,11 +111,10 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
         const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
         window.onYouTubeIframeAPIReady = () => { setIsPlayerReady(true); };
-      } else {
-        setIsPlayerReady(true);
-      }
+      } else { setIsPlayerReady(true); }
   }, []);
 
+  // --- PLAYER LOGIC (ĐÃ FIX LOOP) ---
   useEffect(() => {
       if (!activeTrack || !activeTrack.trackUrl || !isPlayerReady) return;
       const videoId = getYouTubeId(activeTrack.trackUrl);
@@ -136,17 +131,20 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                         event.target.playVideo(); 
                         setIsPlaying(true); 
                         setDuration(event.target.getDuration()); 
-                        updatePlayCount(activeTrack); // Count play khi bắt đầu
+                        updatePlayCount(activeTrack);
                     },
                     'onStateChange': (event: any) => {
                         if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
                         if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
+                        
+                        // KHI BÀI HÁT KẾT THÚC
                         if (event.data === window.YT.PlayerState.ENDED) {
-                            if (isLooping) {
-                                event.target.playVideo();
-                                updatePlayCount(activeTrack); // Count play khi loop
+                            // Dùng Ref để kiểm tra Loop (Tránh lỗi Stale Closure)
+                            if (isLoopingRef.current) {
+                                event.target.playVideo(); // Phát lại
+                                updatePlayCount(activeTrack); // Tính lượt nghe
                             } else {
-                                handleNextTrack();
+                                handleNextTrack(); // Qua bài
                             }
                         }
                     },
@@ -159,10 +157,10 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
             playerRef.current.loadVideoById(videoId);
             setTimeout(() => playerRef.current.playVideo(), 100); 
             setIsPlaying(true);
-            updatePlayCount(activeTrack); // Count play khi chuyển bài
+            updatePlayCount(activeTrack);
           }
       }
-  }, [activeTrack, isPlayerReady]);
+  }, [activeTrack, isPlayerReady]); // Không thêm isLooping vào dependency để tránh re-init player
 
   // Progress Interval
   useEffect(() => {
@@ -189,7 +187,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       setActiveTrack(track); setViewingItem(null);
   };
   const playSpotlight = (track: AlbumItem) => {
-      // Khi play từ Spotlight, queue sẽ là danh sách Spotlight hiện tại
       setQueue(spotlightItems); 
       setActiveTrack(track);
   };
@@ -220,60 +217,35 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const handleSaveItem = async (updatedItem: AlbumItem) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.map(i => i.id === updatedItem.id ? updatedItem : i) }); setEditingItem(null); } };
   const handleDeleteItem = async (id: number) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.filter(i => i.id !== id) }); setEditingItem(null); } };
   
-  // --- SPOTLIGHT SMART ALGORITHM (CẬP NHẬT LOGIC MỚI) ---
+  // --- SPOTLIGHT SMART ALGORITHM ---
   const spotlightItems = useMemo(() => {
-    // 1. Gom tất cả bài hát
     const allItems: AlbumItem[] = shelves.flatMap(s => s.items);
     if (allItems.length === 0) return [];
 
     const now = Date.now();
     const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
 
-    // 2. Tính điểm (Score) cho từng bài
     const scoredItems = allItems.map(item => {
         let score = 0;
-        
-        // Điểm lượt nghe
         score += (item.playCount || 0) * 1; 
-
-        // Điểm bài mới (trong vòng 1 tuần) -> Ưu tiên rất cao
-        // Giả sử item.id là timestamp
-        if (now - item.id < ONE_WEEK) {
-            score += 50;
-        }
-
-        // Điểm yêu thích (Boost mạnh)
-        if (item.isFavorite) {
-            // Nếu đã nghe nhiều mà còn thích -> Boost cực mạnh
-            score = (score + 20) * 1.5;
-        }
-
-        // Điểm ngẫu nhiên nhẹ để thay đổi mỗi lần load (giúp danh sách không bị cứng đơ)
+        if (now - item.id < ONE_WEEK) { score += 50; }
+        if (item.isFavorite) { score = (score + 20) * 1.5; }
         score += Math.random() * 5;
-
         return { ...item, _score: score };
     });
 
-    // 3. Sắp xếp theo điểm giảm dần và lấy Top 8
-    return scoredItems
-        .sort((a, b) => b._score - a._score)
-        .slice(0, 8); // Lấy top 8 bài xịn nhất
+    return scoredItems.sort((a, b) => b._score - a._score).slice(0, 8);
+  }, [shelves]);
 
-  }, [shelves]); // Tự động tính lại khi shelves thay đổi (do playCount tăng hoặc thêm bài mới)
-
-  // Carousel Logic cho Spotlight
   useEffect(() => { 
       if (spotlightItems.length <= 1) return; 
-      const timer = setInterval(() => { 
-          setSpotlightIndex(prev => (prev + 1) % spotlightItems.length); 
-      }, 8000); // 8 giây đổi 1 lần
+      const timer = setInterval(() => { setSpotlightIndex(prev => (prev + 1) % spotlightItems.length); }, 8000); 
       return () => clearInterval(timer); 
   }, [spotlightItems]);
   
   const nextSpotlight = () => setSpotlightIndex(prev => (prev + 1) % spotlightItems.length);
   const prevSpotlight = () => setSpotlightIndex(prev => (prev - 1 + spotlightItems.length) % spotlightItems.length);
 
-  // Library Tracks Logic
   const allTracks = useMemo(() => {
       let tracks: {item: AlbumItem, shelfId: number}[] = []; shelves.forEach(shelf => { shelf.items.forEach(item => { tracks.push({ item, shelfId: shelf.id }); }); });
       if (filterType === 'favorites') tracks = tracks.filter(t => t.item.isFavorite);
@@ -281,7 +253,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       return tracks;
   }, [shelves, filterType, sortType]);
 
-  // Drag Drop
   const [draggedItem, setDraggedItem] = useState<{ item: AlbumItem, sourceShelfId: number, sourceIndex: number } | null>(null);
   const handleDragStart = (e: React.DragEvent, item: AlbumItem, shelfId: number, index: number) => { if (viewMode === 'library') { e.preventDefault(); return; } setDraggedItem({ item, sourceShelfId: shelfId, sourceIndex: index }); e.dataTransfer.effectAllowed = "move"; (e.target as HTMLElement).classList.add('opacity-50'); };
   const handleDragEnd = (e: React.DragEvent) => { (e.target as HTMLElement).classList.remove('opacity-50'); setDraggedItem(null); };
@@ -290,7 +261,6 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
   const focusedShelf = focusedShelfId ? shelves.find(s => s.id === focusedShelfId) : null;
 
   return (
-    // MAIN LAYOUT: Fixed full screen, overflow hidden to manage scroll inside
     <div className="relative h-full w-full flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
       <style>{globalStyles}</style>
       
@@ -318,9 +288,20 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
                     <p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">Sonic Archive</p>
                   </div>
               </div>
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                    <button onClick={() => setViewMode('shelves')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'shelves' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <LayoutGrid size={14} /> Kệ Đĩa </button>
-                    <button onClick={() => setViewMode('library')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'library' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <Library size={14} /> Thư Viện </button>
+              <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                        <button onClick={() => setViewMode('shelves')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'shelves' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <LayoutGrid size={14} /> Kệ Đĩa </button>
+                        <button onClick={() => setViewMode('library')} className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === 'library' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}> <Library size={14} /> Thư Viện </button>
+                  </div>
+                  
+                  {/* --- NÚT THOÁT (MỚI THÊM) --- */}
+                  <button 
+                    onClick={onExit} 
+                    className="p-3 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 shadow-lg hover:shadow-red-500/30" 
+                    title="Thoát phòng nhạc"
+                  >
+                      <LogOut size={20} />
+                  </button>
               </div>
           </div>
         )}
@@ -352,7 +333,7 @@ const AudioRoom: React.FC<{ initialMood?: string }> = ({ initialMood }) => {
       <div className={`flex-1 w-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? 'pb-32' : 'pb-10'}`}>
          <div className="max-w-7xl mx-auto min-h-[500px] pt-6">
              
-             {/* 1. SPOTLIGHT HERO (SMART RECOMMENDATIONS) */}
+             {/* 1. SPOTLIGHT HERO */}
              {!focusedShelfId && viewMode === 'shelves' && spotlightItems.length > 0 && (
                  <SpotlightHero 
                     item={spotlightItems[spotlightIndex]} 
