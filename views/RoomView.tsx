@@ -4,7 +4,7 @@ import { RoomType } from '../types';
 import { ArrowLeft } from 'lucide-react';
 
 // Import các phòng
-import IdentityRoom from '../rooms/IdentityRoom'; // Kiểm tra lại đường dẫn import thực tế của bạn
+import IdentityRoom from './rooms/IdentityRoom'; // Kiểm tra lại đường dẫn import thực tế của bạn
 import CafeRoom from './rooms/CafeRoom';
 import AudioRoom from './rooms/AudioRoom';
 import TechRoom from './rooms/TechRoom';
