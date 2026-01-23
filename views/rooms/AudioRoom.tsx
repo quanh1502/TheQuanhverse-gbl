@@ -6,8 +6,8 @@ import { AlbumItem, AudioShelfData } from '../../contexts/DataContext';
 import { db } from '../../services/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// --- IMPORT CÁC UTILS VÀ COMPONENTS ---
-import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase } from './utils';
+// --- IMPORT CÁC UTILS (Đảm bảo đã thêm getDominantColor vào utils) ---
+import { globalStyles, getYouTubeId, getMoodSearchQuery, getMascotMessage, searchMusicDatabase, getDominantColor } from './utils';
 import { FlyingBroomMascot, MiniPlayer, SpotlightHero, JewelCase3D, AddNewAlbum } from './audiosubComponents';
 import { DetailModal, EditModal } from './audiomodals';
 
@@ -27,9 +27,11 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   // --- STATE GIAO DIỆN ---
   const [viewMode, setViewMode] = useState<'shelves' | 'library'>('shelves'); 
   const [filterType, setFilterType] = useState<'all' | 'favorites'>('all');
-  // UPDATE 1: Thêm 'trending' vào sortType
   const [sortType, setSortType] = useState<'newest' | 'oldest' | 'az' | 'trending'>('newest');
   
+  // --- STATE MÀU SẮC (MỚI) ---
+  const [ambientColor, setAmbientColor] = useState<string>('#0f172a'); // Mặc định là màu tối
+
   const PREVIEW_LIMIT = 8; 
   const [viewingItem, setViewingItem] = useState<AlbumItem | null>(null);
   const [editingItem, setEditingItem] = useState<{item: AlbumItem, shelfId: number} | null>(null);
@@ -57,6 +59,18 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   useEffect(() => {
     isLoopingRef.current = isLooping;
   }, [isLooping]);
+
+  // --- EFFECT: XỬ LÝ ĐỔI MÀU PHÒNG (MỚI) ---
+  useEffect(() => {
+    if (activeTrack?.coverUrl) {
+        // Lấy màu chủ đạo từ bìa album
+        getDominantColor(activeTrack.coverUrl).then((color) => {
+            setAmbientColor(color);
+        });
+    } else {
+        setAmbientColor('#0f172a'); // Reset về màu mặc định nếu không có bài hát
+    }
+  }, [activeTrack]);
 
   // --- LOGIC: REAL-TIME UPDATE ---
   const updatePlayCount = async (track: AlbumItem) => {
@@ -207,36 +221,20 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   const handleSaveItem = async (updatedItem: AlbumItem) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.map(i => i.id === updatedItem.id ? updatedItem : i) }); setEditingItem(null); } };
   const handleDeleteItem = async (id: number) => { if (!editingItem) return; const shelf = shelves.find(s => s.id === editingItem.shelfId); if (shelf) { await updateDoc(doc(db, "audio-shelves", String(editingItem.shelfId)), { items: shelf.items.filter(i => i.id !== id) }); setEditingItem(null); } };
   
-  // --- HELPERS TÍNH ĐIỂM (Dùng chung cho Spotlight và Trending Sort) ---
   const calculateTrendingScore = (item: AlbumItem) => {
         let score = 0;
         const now = Date.now();
         const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-
-        // Điểm lượt nghe (Trọng số cao nhất)
         score += (item.playCount || 0) * 3; 
-
-        // Điểm độ mới (Trong vòng 1 tuần)
         if (now - item.id < ONE_WEEK) { score += 40; }
-
-        // Điểm yêu thích
         if (item.isFavorite) { score += 20; }
-        
-        // Random nhẹ để thay đổi spotlight nếu điểm bằng nhau
         return score;
   };
 
-  // --- UPDATE 2: SPOTLIGHT ITEMS LOGIC (Revised) ---
   const spotlightItems = useMemo(() => {
     const allItems: AlbumItem[] = shelves.flatMap(s => s.items);
     if (allItems.length === 0) return [];
-
-    const scoredItems = allItems.map(item => ({
-        ...item,
-        _score: calculateTrendingScore(item) + Math.random() * 5 // Thêm chút random cho vui vẻ
-    }));
-
-    // Lấy Top 8 điểm cao nhất
+    const scoredItems = allItems.map(item => ({ ...item, _score: calculateTrendingScore(item) + Math.random() * 5 }));
     return scoredItems.sort((a, b) => b._score - a._score).slice(0, 8);
   }, [shelves]);
 
@@ -249,31 +247,17 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   const nextSpotlight = () => setSpotlightIndex(prev => (prev + 1) % spotlightItems.length);
   const prevSpotlight = () => setSpotlightIndex(prev => (prev - 1 + spotlightItems.length) % spotlightItems.length);
 
-  // --- UPDATE 3: ALL TRACKS LOGIC WITH TRENDING SORT ---
   const allTracks = useMemo(() => {
       let tracks: {item: AlbumItem, shelfId: number}[] = []; 
-      shelves.forEach(shelf => { 
-          shelf.items.forEach(item => { 
-              tracks.push({ item, shelfId: shelf.id }); 
-          }); 
-      });
-
-      if (filterType === 'favorites') {
-          tracks = tracks.filter(t => t.item.isFavorite);
-      }
-
-      // SẮP XẾP DỮ LIỆU
+      shelves.forEach(shelf => { shelf.items.forEach(item => { tracks.push({ item, shelfId: shelf.id }); }); });
+      if (filterType === 'favorites') { tracks = tracks.filter(t => t.item.isFavorite); }
       tracks.sort((a, b) => { 
           if (sortType === 'newest') return b.item.id - a.item.id; 
           if (sortType === 'oldest') return a.item.id - b.item.id; 
           if (sortType === 'az') return a.item.title.localeCompare(b.item.title); 
-          if (sortType === 'trending') {
-              // Sử dụng cùng logic tính điểm nhưng không random để list ổn định
-              return calculateTrendingScore(b.item) - calculateTrendingScore(a.item);
-          }
+          if (sortType === 'trending') { return calculateTrendingScore(b.item) - calculateTrendingScore(a.item); }
           return 0; 
       });
-
       return tracks;
   }, [shelves, filterType, sortType]);
 
@@ -285,16 +269,23 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   const focusedShelf = focusedShelfId ? shelves.find(s => s.id === focusedShelfId) : null;
 
   return (
-    <div className="relative h-full w-full flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black overflow-hidden text-slate-200">
+    // THAY ĐỔI 1: Background Động - Sử dụng style inline để ghi đè màu nền
+    <div 
+        className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 transition-colors duration-1000 ease-in-out"
+        style={{
+            background: `radial-gradient(ellipse at top, ${ambientColor} 0%, #0f172a 70%, #000000 100%)`
+        }}
+    >
       <style>{globalStyles}</style>
       
       <div id="youtube-player" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}></div>
       
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none animate-float"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/20 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
+      {/* Giữ nguyên các hiệu ứng nền cũ nhưng làm mờ đi một chút để màu chủ đạo nổi bật hơn */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none animate-float"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
       
       {/* HEADER */}
-      <div className="z-30 w-full flex flex-col bg-slate-900/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all duration-300 shrink-0">
+      <div className="z-30 w-full flex flex-col bg-slate-900/50 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all duration-300 shrink-0">
         {!focusedShelfId && (
           <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void">
               <div className="flex items-center gap-4">
@@ -318,7 +309,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
           </div>
         )}
 
-        {/* TOOLBAR - UPDATE 4: UI Dropdown "Thịnh Hành" */}
+        {/* TOOLBAR */}
         {viewMode === 'library' && !focusedShelfId && (
           <div className="px-6 pb-4 pt-0 animate-fade-in flex flex-wrap items-center gap-4">
                <div className="flex items-center gap-2 border-r border-white/10 pr-4"> 
@@ -413,21 +404,29 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
       {mascotPhase === 'returning' && <div className="fixed inset-0 z-50 pointer-events-none"><div className="absolute top-auto left-4 bottom-4 transition-all duration-1000 ease-in-out"><RavenclawTaurusMascot variant="music" placement="right" /></div></div>}
       {mascotPhase === 'idle' && !(viewingItem?.isFavorite) && !focusedShelfId && <RavenclawTaurusMascot className="absolute bottom-4 left-4 z-20 animate-fade-in" greeting="Tận hưởng âm nhạc đi Muggle" variant="music" placement="right" />}
 
-      <MiniPlayer 
-        currentTrack={activeTrack} 
-        isPlaying={isPlaying} 
-        onTogglePlay={togglePlay} 
-        onNext={handleNextTrack} 
-        onPrev={handlePrevTrack} 
-        currentTime={currentTime} 
-        duration={duration} 
-        onSeek={handleSeek} 
-        volume={volume} 
-        onVolumeChange={handleVolumeChange}
-        isLooping={isLooping}
-        onToggleLoop={() => setIsLooping(!isLooping)}
-        onToggleFavorite={handleToggleFavoritePlayer}
-      />
+      {/* THAY ĐỔI 2: Wrapper cho MiniPlayer với hiệu ứng tỏa sáng (Glow) */}
+      <div 
+        className="w-full sticky bottom-0 z-40 transition-all duration-700 ease-in-out"
+        style={{ 
+            boxShadow: activeTrack ? `0 -20px 80px ${ambientColor}60` : 'none' 
+        }}
+      >
+        <MiniPlayer 
+            currentTrack={activeTrack} 
+            isPlaying={isPlaying} 
+            onTogglePlay={togglePlay} 
+            onNext={handleNextTrack} 
+            onPrev={handlePrevTrack} 
+            currentTime={currentTime} 
+            duration={duration} 
+            onSeek={handleSeek} 
+            volume={volume} 
+            onVolumeChange={handleVolumeChange}
+            isLooping={isLooping}
+            onToggleLoop={() => setIsLooping(!isLooping)}
+            onToggleFavorite={handleToggleFavoritePlayer}
+        />
+      </div>
       
       {viewingItem && <DetailModal item={viewingItem} onClose={() => setViewingItem(null)} onPlay={() => { playTrackFromShelf(viewingItem, shelves.find(s => s.items.some(i => i.id === viewingItem.id))?.id || 0); setViewingItem(null); }} />}
       {editingItem && <EditModal item={editingItem.item} onClose={() => setEditingItem(null)} onSave={handleSaveItem} onDelete={handleDeleteItem} />}
@@ -436,4 +435,3 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
 };
 
 export default AudioRoom;
-
