@@ -40,7 +40,7 @@ export const FlyingBroomMascot = () => {
   );
 };
 
-// --- 2. MINI PLAYER (GIAO DIỆN MỚI CỦA BẠN) ---
+// --- 2. MINI PLAYER (ĐÃ CHỈNH SỬA KÍCH THƯỚC) ---
 interface MiniPlayerProps {
     currentTrack: AlbumItem | null;
     isPlaying: boolean;
@@ -65,18 +65,20 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
 }) => {
     if (!currentTrack) return null;
 
-    // Tính phần trăm để làm thanh progress gradient
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl z-[100] animate-slide-in">
+        // THAY ĐỔI Ở ĐÂY:
+        // 1. w-[90%]: Giảm chiều rộng để chừa lề 2 bên nhiều hơn (tránh bị mất góc phải).
+        // 2. max-w-3xl: Giới hạn chiều dài tối đa ngắn hơn (bản cũ là 4xl).
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-[100] animate-slide-in">
             {/* Glass Container */}
             <div className={`
-                relative bg-slate-900/60 backdrop-blur-xl rounded-3xl p-4 
+                relative bg-slate-900/60 backdrop-blur-xl rounded-3xl px-4 py-3 md:p-4 
                 border border-white/10 shadow-2xl transition-all duration-500
                 ${isPlaying ? 'shadow-[0_0_30px_rgba(6,182,212,0.15)] border-cyan-500/30' : ''}
             `}>
-                {/* Progress Bar chạy dọc trên đầu Player */}
+                {/* Progress Bar */}
                 <div className="absolute top-0 left-4 right-4 h-[2px] bg-white/10 rounded-full overflow-hidden">
                     <div 
                         className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 shadow-[0_0_10px_#22d3ee]"
@@ -84,16 +86,15 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                     ></div>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 mt-2">
+                <div className="flex items-center justify-between gap-3 md:gap-4 mt-2">
                     
                     {/* Track Info & Cover */}
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
                         <div className={`
-                            relative w-14 h-14 rounded-full overflow-hidden border-2 
+                            relative w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full overflow-hidden border-2 
                             ${isPlaying ? 'animate-spin-slow border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'border-slate-600'}
                         `}>
                             <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" />
-                            {/* Inner hole for Vinyl look */}
                             <div className="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-white/20"></div>
                         </div>
                         <div className="overflow-hidden">
@@ -101,7 +102,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                                 {currentTrack.title}
                             </h4>
                             <div className="flex items-center gap-2">
-                                <p className="text-xs text-slate-400 truncate max-w-[100px] md:max-w-xs">{currentTrack.artist}</p>
+                                <p className="text-xs text-slate-400 truncate max-w-[80px] md:max-w-xs">{currentTrack.artist}</p>
                                 <button onClick={onToggleFavorite} className={`transition-transform hover:scale-110 ${currentTrack.isFavorite ? 'text-amber-400' : 'text-slate-600 hover:text-white'}`}>
                                     <Heart size={14} fill={currentTrack.isFavorite ? "currentColor" : "none"} />
                                 </button>
@@ -109,27 +110,28 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                         </div>
                     </div>
 
-                    {/* Controls (Centered) */}
-                    <div className="flex items-center gap-4 md:gap-6">
+                    {/* Controls */}
+                    <div className="flex items-center gap-3 md:gap-6">
                         <button onClick={onToggleLoop} className={`transition-colors hidden md:block ${isLooping ? 'text-cyan-400' : 'text-slate-500 hover:text-white'}`}>
                             <Repeat size={18} />
                         </button>
                         
-                        <button onClick={onPrev} className="text-slate-400 hover:text-white transition-colors p-2"><SkipBack size={20} fill="currentColor" /></button>
+                        <button onClick={onPrev} className="text-slate-400 hover:text-white transition-colors p-1 md:p-2"><SkipBack size={20} fill="currentColor" /></button>
                         
                         <button 
                             onClick={onTogglePlay} 
                             className={`
-                                w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105
+                                w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 shrink-0
                                 ${isPlaying ? 'bg-gradient-to-br from-cyan-400 to-blue-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)]' : 'bg-white text-slate-900'}
                             `}
                         >
-                            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
                         </button>
                         
-                        <button onClick={onNext} className="text-slate-400 hover:text-white transition-colors p-2"><SkipForward size={20} fill="currentColor" /></button>
+                        <button onClick={onNext} className="text-slate-400 hover:text-white transition-colors p-1 md:p-2"><SkipForward size={20} fill="currentColor" /></button>
                         
-                        <div className="hidden md:flex items-center gap-2 w-24">
+                        {/* Volume - Ẩn trên mobile để tiết kiệm diện tích */}
+                        <div className="hidden lg:flex items-center gap-2 w-20 xl:w-24">
                             <button onClick={() => onVolumeChange(volume === 0 ? 100 : 0)} className="text-slate-400 hover:text-white">
                                 {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                             </button>
@@ -137,8 +139,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                         </div>
                     </div>
 
-                    {/* Time (Desktop only) */}
-                    <div className="hidden md:block text-xs text-slate-500 font-mono w-20 text-right">
+                    {/* Time - Chỉ hiện trên màn hình lớn */}
+                    <div className="hidden lg:block text-xs text-slate-500 font-mono w-16 text-right">
                          {formatTime(currentTime)}
                     </div>
                 </div>
@@ -147,6 +149,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
     );
 };
 
+    
 // --- 3. SPOTLIGHT HERO (KHÔI PHỤC LẠI TỪ CODE GỐC ĐỂ KHÔNG BỊ MẤT) ---
 export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentIndex }: any) => {
     if (!item) return null;
