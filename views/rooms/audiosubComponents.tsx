@@ -1,17 +1,17 @@
 // src/rooms/audiosubComponents.tsx
 import React, { useRef, useEffect, useState } from 'react';
-// Gộp tất cả các icon cần thiết từ cả 2 phiên bản
+// Gộp tất cả các icon cần thiết, thêm Flame và Zap cho nhãn HOT/NEW
 import { 
     Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, 
     Sparkles, ChevronLeft, ChevronRight, Music, Plus, 
-    Repeat, Heart, AlertTriangle, ListMusic 
+    Repeat, Heart, AlertTriangle, ListMusic, Flame, Zap
 } from 'lucide-react';
 
 import { AlbumItem } from '../../contexts/DataContext';
 import RavenclawTaurusMascot from '../../components/RavenclawTaurusMascot';
 import { formatTime } from './utils';
 
-// --- 1. MASCOT (GIỮ NGUYÊN TỪ CODE GỐC) ---
+// --- 1. MASCOT (GIỮ NGUYÊN) ---
 export const FlyingBroomMascot = () => {
   const mascotRef = useRef<HTMLDivElement>(null);
   const [sparkles, setSparkles] = useState<{id: number, x: number, y: number, size: number}[]>([]);
@@ -40,7 +40,7 @@ export const FlyingBroomMascot = () => {
   );
 };
 
-// --- 2. MINI PLAYER (ĐÃ CHỈNH SỬA KÍCH THƯỚC) ---
+// --- 2. MINI PLAYER (GIỮ NGUYÊN CẤU TRÚC ĐÃ SỬA: w-[90%] max-w-3xl) ---
 interface MiniPlayerProps {
     currentTrack: AlbumItem | null;
     isPlaying: boolean;
@@ -68,9 +68,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
 
     return (
-        // THAY ĐỔI Ở ĐÂY:
-        // 1. w-[90%]: Giảm chiều rộng để chừa lề 2 bên nhiều hơn (tránh bị mất góc phải).
-        // 2. max-w-3xl: Giới hạn chiều dài tối đa ngắn hơn (bản cũ là 4xl).
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-[100] animate-slide-in">
             {/* Glass Container */}
             <div className={`
@@ -130,7 +127,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                         
                         <button onClick={onNext} className="text-slate-400 hover:text-white transition-colors p-1 md:p-2"><SkipForward size={20} fill="currentColor" /></button>
                         
-                        {/* Volume - Ẩn trên mobile để tiết kiệm diện tích */}
+                        {/* Volume */}
                         <div className="hidden lg:flex items-center gap-2 w-20 xl:w-24">
                             <button onClick={() => onVolumeChange(volume === 0 ? 100 : 0)} className="text-slate-400 hover:text-white">
                                 {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -139,7 +136,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                         </div>
                     </div>
 
-                    {/* Time - Chỉ hiện trên màn hình lớn */}
+                    {/* Time */}
                     <div className="hidden lg:block text-xs text-slate-500 font-mono w-16 text-right">
                          {formatTime(currentTime)}
                     </div>
@@ -149,8 +146,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
     );
 };
 
-    
-// --- 3. SPOTLIGHT HERO (KHÔI PHỤC LẠI TỪ CODE GỐC ĐỂ KHÔNG BỊ MẤT) ---
+// --- 3. SPOTLIGHT HERO (GIỮ NGUYÊN) ---
 export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentIndex }: any) => {
     if (!item) return null;
 
@@ -254,7 +250,7 @@ export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentInd
     );
 };
 
-// --- 4. JEWEL CASE 3D (CODE MỚI ĐÃ ĐƯỢC CẢI TIẾN LOGIC) ---
+// --- 4. JEWEL CASE 3D (ĐÃ CẬP NHẬT: THÊM NHÃN HOT/NEW) ---
 interface JewelCaseProps {
     item: AlbumItem;
     isPlayingThis?: boolean;
@@ -269,6 +265,13 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
       onEdit();
   };
 
+  // Logic xác định nhãn HOT hoặc NEW
+  const currentYear = new Date().getFullYear();
+  // New nếu là năm hiện tại hoặc năm ngoái
+  const isNew = item.year === currentYear.toString() || item.year === (currentYear - 1).toString();
+  // Hot nếu được yêu thích hoặc playCount cao (giả định > 20)
+  const isHot = item.isFavorite || (item as any).playCount > 20;
+
   return (
     <div className="flex flex-col items-center gap-3 group relative z-10 hover:z-20 transition-all duration-300">
         <div 
@@ -276,10 +279,12 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
             onContextMenu={handleContextMenu}
             className="relative w-36 h-36 cursor-pointer perspective-[800px] touch-manipulation"
         >
+          {/* Shadow dưới đáy */}
           <div className={`absolute bottom-0 left-4 right-4 h-4 bg-black/40 blur-xl rounded-full transform translate-y-2 group-hover:scale-75 transition-transform duration-500 ${isPlayingThis ? 'bg-cyan-500/20' : ''}`}></div>
           
           <div className={`w-full h-full preserve-3d transition-transform duration-500 ${isPlayingThis ? '-translate-y-4 rotate-x-6 rotate-y-12' : 'group-hover:-translate-y-4 group-hover:rotate-x-6 group-hover:rotate-y-12'}`}>
             
+            {/* Đĩa CD trượt ra */}
             <div className={`absolute top-1 left-1 w-32 h-32 rounded-full flex items-center justify-center transition-transform duration-[3s] linear shadow-lg ${isPlayingThis ? 'translate-x-16 animate-spin-slow' : 'group-hover:translate-x-16 group-hover:rotate-[360deg] duration-700'}`}
                  style={{ background: `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.4) 20%, transparent 30%, transparent 100%), radial-gradient(circle, #334155 30%, #0f172a 100%)` }}>
               <div className="absolute inset-0 rounded-full opacity-60 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 mix-blend-screen"></div>
@@ -287,9 +292,11 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
               {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-amber-400 drop-shadow-md z-10 text-xl animate-pulse">★</div>}
             </div>
 
+            {/* Vỏ đĩa (Cover) */}
             <div className={`absolute inset-0 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 shadow-xl overflow-hidden transform origin-left transition-transform duration-500 group-hover:rotate-y-[-15deg] ${isError ? 'border-red-500/50' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent z-20 pointer-events-none mix-blend-overlay"></div>
                 
+                {/* Ảnh bìa */}
                 {item.coverUrl ? ( 
                     <img src={item.coverUrl} alt={item.title} className={`w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110 ${isError ? 'grayscale' : ''}`} /> 
                 ) : ( 
@@ -299,12 +306,14 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
                     </div> 
                 )}
 
+                {/* Error Overlay */}
                 {isError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30">
                         <AlertTriangle size={32} className="text-red-500 animate-pulse" />
                     </div>
                 )}
                 
+                {/* Playing Indicator Overlay */}
                 {isPlayingThis && !isError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-30">
                         <div className="w-8 h-8 rounded-full bg-cyan-500/80 flex items-center justify-center backdrop-blur-md shadow-[0_0_15px_#22d3ee]">
@@ -316,10 +325,26 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
                 )}
 
                 <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-white/40 z-30"></div>
+                
+                {/* [MỚI] HOT / NEW BADGES - Được đặt bên trong layer vỏ đĩa để xoay cùng */}
+                <div className="absolute top-2 right-2 flex flex-col items-end gap-1.5 z-40">
+                    {isHot && (
+                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-lg flex items-center gap-1 animate-pulse border border-white/10">
+                            <Flame size={8} fill="currentColor" /> HOT
+                        </div>
+                    )}
+                    {isNew && !isHot && (
+                        <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-lg flex items-center gap-1 border border-white/10">
+                            <Zap size={8} fill="currentColor" /> NEW
+                        </div>
+                    )}
+                </div>
+
             </div>
           </div>
         </div>
         
+        {/* Title & Artist */}
         <div className={`text-center w-40 pointer-events-none transition-all duration-300 ${isPlayingThis ? 'text-cyan-400 translate-y-1' : 'group-hover:translate-y-1'}`}>
             <h3 className={`text-xs font-bold leading-tight drop-shadow-md truncate px-1 ${isError ? 'text-red-400 line-through' : ''}`}>{item.title}</h3>
             <p className="text-[10px] text-white/50 font-medium uppercase tracking-wider mt-1 truncate">{item.artist}</p>
@@ -328,7 +353,7 @@ export const JewelCase3D: React.FC<JewelCaseProps> = ({ item, isPlayingThis, isE
   );
 };
 
-// --- 5. ADD NEW ALBUM (GIỮ NGUYÊN TỪ CODE GỐC) ---
+// --- 5. ADD NEW ALBUM (GIỮ NGUYÊN) ---
 export const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
     <div onClick={onClick} className="mb-12 w-36 h-36 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5 hover:bg-cyan-500/10 hover:border-cyan-400/30 transition-all cursor-pointer group hover:scale-105 backdrop-blur-sm">
        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors"><Plus className="text-white/30 group-hover:text-cyan-400" /></div>
