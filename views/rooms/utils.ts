@@ -134,29 +134,31 @@ export const getSmartRecommendations = (allTracks: AlbumItem[], limit: number = 
 // --- MỚI: Color Extraction Logic ---
 import ColorThief from 'colorthief';
 
+// src/rooms/utils.ts
+
+// ... giữ nguyên các phần trên (imports cũ, helper functions cũ) ...
+
+// --- MỚI: Color Extraction Logic (Sử dụng fast-average-color) ---
+import { FastAverageColor } from 'fast-average-color';
+
 export const getDominantColor = async (imageUrl: string): Promise<string> => {
-  // Trả về màu mặc định (Slate-900) nếu không có ảnh
+  // 1. Kiểm tra môi trường để tránh lỗi Server (Vercel Build)
+  if (typeof window === 'undefined') return '#0f172a';
   if (!imageUrl) return '#0f172a';
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous'; // Quan trọng: Cho phép tải ảnh từ domain khác (Youtube/Firebase)
-    img.src = imageUrl;
-
-    img.onload = () => {
-      try {
-        const colorThief = new ColorThief();
-        const color = colorThief.getColor(img); // Trả về mảng [R, G, B]
-        // Chuyển đổi sang chuỗi rgb() để dễ dùng trong CSS
-        resolve(`rgb(${color[0]}, ${color[1]}, ${color[2]})`);
-      } catch (e) {
-        // Fallback nếu lỗi
-        resolve('#0f172a');
-      }
-    };
-
-    img.onerror = () => {
-      resolve('#0f172a');
-    };
-  });
+  try {
+    const fac = new FastAverageColor();
+    // 2. Lấy màu trung bình từ ảnh
+    const color = await fac.getColorAsync(imageUrl, {
+      algorithm: 'dominant', // Lấy màu chủ đạo
+      ignoredColor: [255, 255, 255, 255] // Bỏ qua màu trắng (nếu cần)
+    });
+    
+    // 3. Trả về mã màu (hex hoặc rgb)
+    return color.rgba; 
+  } catch (e) {
+    // Nếu lỗi (do ảnh chặn bảo mật hoặc lỗi link), trả về màu tối mặc định
+    console.error("Lỗi lấy màu:", e);
+    return '#0f172a';
+  }
 };
