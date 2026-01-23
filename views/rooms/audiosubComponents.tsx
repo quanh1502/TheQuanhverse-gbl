@@ -32,35 +32,240 @@ export const FlyingBroomMascot = () => {
   );
 };
 
-// --- MINI PLAYER (UI/UX UPGRADE) ---
+// --- MINI PLAYER ---
+// Import thêm icons
+import { Repeat, Heart } from 'lucide-react';
+
+// Cập nhật Props cho MiniPlayer
 interface MiniPlayerProps {
-    currentTrack: AlbumItem | null;
-    isPlaying: boolean;
-    onTogglePlay: () => void;
-    onNext: () => void;
-    onPrev: () => void;
-    currentTime: number;
-    duration: number;
-    onSeek: (time: number) => void;
-    volume: number;
-    onVolumeChange: (vol: number) => void;
-    isLooping: boolean;
-    onToggleLoop: () => void;
-    onToggleFavorite: () => void;
-    onToggleQueue?: () => void; // Thêm nút mở danh sách chờ (nếu muốn mở rộng sau này)
+    // ... giữ nguyên các props cũ
+    isLooping: boolean;           // MỚI
+    onToggleLoop: () => void;     // MỚI
+    onToggleFavorite: () => void; // MỚI
 }
 
 export const MiniPlayer: React.FC<MiniPlayerProps> = ({ 
     currentTrack, isPlaying, onTogglePlay, onNext, onPrev, 
     currentTime, duration, onSeek, volume, onVolumeChange,
-    isLooping, onToggleLoop, onToggleFavorite 
+    isLooping, onToggleLoop, onToggleFavorite // Nhận thêm props
 }) => {
     if (!currentTrack) return null;
+    return (
+        <div className="fixed bottom-0 left-0 right-0 h-24 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 z-[100] animate-slide-in flex items-center px-4 md:px-8 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            {/* 1. INFO SECTION - Giữ nguyên */}
+            <div className="flex items-center gap-4 w-1/3 min-w-[200px]">
+               {/* ... Code cũ hiển thị ảnh và tên bài hát ... */}
+               <div className={`w-14 h-14 rounded-full overflow-hidden border-2 border-slate-700 shadow-lg relative ${isPlaying ? 'animate-spin-slow' : ''}`}>
+                   <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" />
+               </div>
+               <div className="hidden md:block overflow-hidden">
+                   <h4 className="text-white font-bold truncate max-w-[150px]">{currentTrack.title}</h4>
+                   <p className="text-xs text-slate-400 truncate">{currentTrack.artist}</p>
+               </div>
+               
+               {/* NÚT TIM (FAVORITE) - Thêm vào ngay cạnh tên bài hát hoặc tách riêng */}
+               <button onClick={onToggleFavorite} className={`ml-2 hover:scale-110 transition-transform ${currentTrack.isFavorite ? 'text-amber-400' : 'text-slate-600 hover:text-white'}`}>
+                   <Heart size={18} fill={currentTrack.isFavorite ? "currentColor" : "none"} />
+               </button>
+            </div>
 
-    // Tính phần trăm để làm thanh progress gradient
-    const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+            {/* 2. CONTROLS SECTION */}
+            <div className="flex flex-col items-center justify-center flex-1 max-w-xl">
+                <div className="flex items-center gap-6 mb-2">
+                    {/* NÚT LOOP (LẶP LẠI) */}
+                    <button 
+                        onClick={onToggleLoop} 
+                        className={`transition-colors ${isLooping ? 'text-cyan-400' : 'text-slate-500 hover:text-white'}`}
+                        title="Lặp lại bài này"
+                    >
+                        <Repeat size={18} />
+                    </button>
+
+                    <button onClick={onPrev} className="text-slate-400 hover:text-white transition-colors"><SkipBack size={20} fill="currentColor" /></button>
+                    
+                    {/* Play/Pause Button - Giữ nguyên */}
+                    <button onClick={onTogglePlay} className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-white/20">
+                        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                    </button>
+                    
+                    <button onClick={onNext} className="text-slate-400 hover:text-white transition-colors"><SkipForward size={20} fill="currentColor" /></button>
+                    
+                    {/* Dummy element để cân bằng layout nếu cần, hoặc để trống */}
+                    <div className="w-[18px]"></div> 
+                </div>
+                {/* Seekbar - Giữ nguyên */}
+                <div className="w-full flex items-center gap-3 text-xs text-slate-400 font-mono">
+                    <span>{formatTime(currentTime)}</span>
+                    <input type="range" min="0" max={duration || 100} value={currentTime} onChange={(e) => onSeek(Number(e.target.value))} className="range-slider w-full h-1 bg-slate-700 rounded-full appearance-none"/>
+                    <span>{formatTime(duration)}</span>
+                </div>
+            </div>
+
+            {/* 3. VOLUME SECTION - Giữ nguyên */}
+            <div className="w-1/3 flex items-center justify-end gap-4 min-w-[150px]">
+                {/* ... code cũ ... */}
+                 <div className="flex items-center gap-2 group"><button onClick={() => onVolumeChange(volume === 0 ? 100 : 0)} className="text-slate-400 hover:text-white">{volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button><input type="range" min="0" max="100" value={volume} onChange={(e) => onVolumeChange(Number(e.target.value))} className="w-20 range-slider h-1 bg-slate-700 rounded-full"/></div>
+            </div>
+        </div>
+    );
+};
+// src/rooms/audiosubComponents.tsx
+
+// ... (Các import cũ giữ nguyên)
+
+// --- SPOTLIGHT HERO (NEW VERSION) ---
+export const SpotlightHero = ({ item, onClick, onNext, onPrev, total, currentIndex }: any) => {
+    if (!item) return null;
+
+    // Kiểm tra xem bài này có phải bài "Hot" (nhiều lượt nghe + yêu thích) không để đổi màu viền
+    const isTrendingHit = item.isFavorite && ((item as any).playCount > 10 || item.description?.includes("Gợi ý"));
 
     return (
+        <div className="relative w-full mb-12 group cursor-pointer animate-appear-from-void min-h-[350px] flex items-center justify-center py-4">
+            
+            {/* Navigation Buttons (Nổi lên trên hẳn) */}
+            {total > 1 && (
+                <>
+                    <div onClick={(e) => {e.stopPropagation(); onPrev();}} className="absolute left-0 md:-left-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110">
+                        <ChevronLeft size={24} />
+                    </div>
+                    <div onClick={(e) => {e.stopPropagation(); onNext();}} className="absolute right-0 md:-right-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110">
+                        <ChevronRight size={24} />
+                    </div>
+                </>
+            )}
+
+            {/* --- THE CARD CONTAINER --- */}
+            {/* Đây là phần tạo ra "Khối nổi", "Viền sáng" và "Tách bạch background" */}
+            <div 
+                onClick={onClick}
+                className={`
+                    relative w-full max-w-5xl overflow-hidden rounded-3xl 
+                    border-[3px] ${isTrendingHit ? 'border-amber-400/50' : 'border-cyan-400/30'} 
+                    bg-slate-900/40 backdrop-blur-xl 
+                    shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)]
+                    hover:shadow-[0_30px_80px_-10px_rgba(6,182,212,0.3)]
+                    hover:border-cyan-400/60
+                    transition-all duration-500 transform hover:-translate-y-2
+                `}
+            >
+                {/* Background Gradient động bên trong thẻ để tạo độ sáng */}
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-transparent opacity-50"></div>
+                
+                {/* Ảnh nền mờ (Blur background) chỉ nằm gọn trong thẻ */}
+                <div key={`bg-${item.id}`} className="absolute inset-0 z-0">
+                    <img src={item.coverUrl} alt="" className="w-full h-full object-cover blur-[50px] opacity-40 scale-125 animate-pulse-glow" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
+                </div>
+
+                {/* --- NỘI DUNG CHÍNH --- */}
+                <div key={item.id} className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12 h-full animate-slide-in">
+                    
+                    {/* Ảnh bìa đĩa than (Album Art) */}
+                    <div className="relative w-48 h-48 md:w-64 md:h-64 shrink-0 group-hover:scale-105 transition-transform duration-500">
+                        <div className={`absolute inset-0 rounded-full ${isTrendingHit ? 'bg-amber-500' : 'bg-cyan-400'} blur-2xl opacity-20 group-hover:opacity-40 transition-opacity`}></div>
+                        <img 
+                            src={item.coverUrl} 
+                            alt={item.title} 
+                            className={`w-full h-full object-cover rounded-lg shadow-2xl border-2 ${isTrendingHit ? 'border-amber-400/50' : 'border-white/20'} rotate-3 group-hover:rotate-6 transition-all duration-500`} 
+                        />
+                        {/* Huy hiệu Play Count hoặc Trending */}
+                        <div className="absolute -bottom-4 -right-4 bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/10 shadow-lg flex items-center gap-1">
+                            <Sparkles size={12} className={isTrendingHit ? "text-amber-400" : "text-cyan-400"} />
+                            {isTrendingHit ? "Trending Hit" : "Suggested"}
+                        </div>
+                    </div>
+
+                    {/* Text Info */}
+                    <div className="flex-1 text-center md:text-left space-y-4">
+                        <div className="flex items-center justify-center md:justify-start gap-3">
+                            <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg border ${isTrendingHit ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'}`}>
+                                <Music size={12} /> {isTrendingHit ? "Top Pick" : "New Mix"}
+                            </span>
+                            {total > 1 && <span className="text-[10px] text-slate-400 font-mono tracking-widest">{currentIndex + 1} / {total}</span>}
+                        </div>
+                        
+                        <h2 className="text-3xl md:text-5xl font-black text-white leading-tight drop-shadow-lg tracking-tight line-clamp-2 group-hover:text-cyan-200 transition-colors">
+                            {item.title}
+                        </h2>
+                        
+                        <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-lg text-slate-300 font-medium">
+                            <span className="text-cyan-100">{item.artist}</span>
+                            <span className="hidden md:inline w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                            <span className="text-sm font-mono opacity-60 bg-white/5 px-2 py-0.5 rounded">{item.year || "Unknown"}</span>
+                        </div>
+
+                        {item.description && ( 
+                            <div className="relative mt-2 p-4 bg-white/5 rounded-xl border-l-4 border-cyan-500/50 text-sm text-slate-300 italic max-w-xl text-left">
+                                "{item.description}"
+                            </div> 
+                        )}
+
+                        <div className="pt-6 flex items-center justify-center md:justify-start gap-4 opacity-90 group-hover:opacity-100 transition-all duration-300">
+                            <button className="flex items-center gap-2 bg-white text-slate-950 px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
+                                <Play size={20} fill="currentColor" /> PHÁT NGAY
+                            </button>
+                            {item.isFavorite && <div className="p-3 bg-amber-500/20 rounded-full text-amber-400 border border-amber-500/30"><Heart size={20} fill="currentColor"/></div>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Pagination Dots */}
+                {total > 1 && ( 
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 p-2 bg-black/20 rounded-full backdrop-blur-sm">
+                        {Array.from({ length: Math.min(total, 5) }).map((_, idx) => ( 
+                            <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === (currentIndex % 5) ? 'bg-cyan-400 w-6' : 'bg-white/30 w-1.5'}`}></div> 
+                        ))}
+                    </div> 
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// --- JEWEL CASE 3D ---
+export const JewelCase3D: React.FC<{ item: AlbumItem; isPlayingThis?: boolean; onClick: () => void; onEdit: () => void; }> = ({ item, isPlayingThis, onClick, onEdit }) => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickCountRef = useRef(0);
+  const handleInteraction = (e: React.MouseEvent) => {
+    e.stopPropagation(); clickCountRef.current += 1;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (clickCountRef.current === 2) { clickCountRef.current = 0; onEdit(); } 
+    else { timerRef.current = setTimeout(() => { if (clickCountRef.current === 1) onClick(); clickCountRef.current = 0; timerRef.current = null; }, 250); }
+  };
+  return (
+    <div className="flex flex-col items-center gap-3 group relative z-10 hover:z-20 transition-all duration-300">
+        <div onClick={handleInteraction} className="relative w-36 h-36 cursor-pointer perspective-[800px] touch-manipulation">
+          <div className="absolute bottom-0 left-4 right-4 h-4 bg-black/40 blur-xl rounded-full transform translate-y-2 group-hover:scale-75 transition-transform duration-500"></div>
+          <div className={`w-full h-full preserve-3d transition-transform duration-500 ${isPlayingThis ? '-translate-y-4 rotate-x-6 rotate-y-12' : 'group-hover:-translate-y-4 group-hover:rotate-x-6 group-hover:rotate-y-12'}`}>
+            <div className={`absolute top-1 left-1 w-32 h-32 rounded-full flex items-center justify-center transition-transform duration-[3s] linear shadow-lg ${isPlayingThis ? 'translate-x-16 animate-spin-slow' : 'group-hover:translate-x-16 group-hover:rotate-[360deg] duration-700'}`}
+                 style={{ background: `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.4) 20%, transparent 30%, transparent 100%), radial-gradient(circle, #334155 30%, #0f172a 100%)` }}>
+              <div className="absolute inset-0 rounded-full opacity-60 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 mix-blend-screen"></div>
+              <div className="w-10 h-10 bg-slate-950 rounded-full border border-white/10"></div>
+              {item.isFavorite && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-amber-400 drop-shadow-md z-10 text-xl animate-pulse">★</div>}
+            </div>
+            <div className="absolute inset-0 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 shadow-xl overflow-hidden transform origin-left transition-transform duration-500 group-hover:rotate-y-[-15deg]">
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent z-20 pointer-events-none mix-blend-overlay"></div>
+                {item.coverUrl ? ( <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" /> ) : ( <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center p-2 text-center"><Music size={32} className="text-white/20 mb-2" /><span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">{item.title}</span></div> )}
+                <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-white/40 z-30"></div>
+            </div>
+          </div>
+        </div>
+        <div className={`text-center w-40 pointer-events-none transition-all duration-300 ${isPlayingThis ? 'text-cyan-400 translate-y-1' : 'group-hover:translate-y-1'}`}>
+            <h3 className="text-xs font-bold leading-tight drop-shadow-md truncate px-1">{item.title}</h3>
+            <p className="text-[10px] text-white/50 font-medium uppercase tracking-wider mt-1 truncate">{item.artist}</p>
+        </div>
+    </div>
+  );
+};
+
+export const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
+    <div onClick={onClick} className="mb-12 w-36 h-36 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5 hover:bg-cyan-500/10 hover:border-cyan-400/30 transition-all cursor-pointer group hover:scale-105 backdrop-blur-sm">
+       <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors"><Plus className="text-white/30 group-hover:text-cyan-400" /></div>
+       <span className="mt-3 text-[10px] text-white/30 font-mono uppercase tracking-widest group-hover:text-cyan-300">Add Music</span>
+    </div>
+);    return (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl z-[100] animate-slide-in">
             {/* Glass Container */}
             <div className={`
