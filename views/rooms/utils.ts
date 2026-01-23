@@ -126,3 +126,36 @@ export const getSmartRecommendations = (allTracks: AlbumItem[], limit: number = 
     .sort((a, b) => b._score - a._score)
     .slice(0, limit);
 };
+// src/rooms/utils.ts
+
+// ... (Giữ nguyên các code cũ phía trên)
+
+// --- MỚI: Color Extraction Logic ---
+import ColorThief from 'colorthief';
+
+export const getDominantColor = async (imageUrl: string): Promise<string> => {
+  // Trả về màu mặc định (Slate-900) nếu không có ảnh
+  if (!imageUrl) return '#0f172a';
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous'; // Quan trọng: Cho phép tải ảnh từ domain khác (Youtube/Firebase)
+    img.src = imageUrl;
+
+    img.onload = () => {
+      try {
+        const colorThief = new ColorThief();
+        const color = colorThief.getColor(img); // Trả về mảng [R, G, B]
+        // Chuyển đổi sang chuỗi rgb() để dễ dùng trong CSS
+        resolve(`rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+      } catch (e) {
+        // Fallback nếu lỗi
+        resolve('#0f172a');
+      }
+    };
+
+    img.onerror = () => {
+      resolve('#0f172a');
+    };
+  });
+};
