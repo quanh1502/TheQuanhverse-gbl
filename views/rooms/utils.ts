@@ -1,4 +1,4 @@
-import { AlbumItem } from '../../contexts/DataContext';
+import { AlbumItem } from "../../contexts/DataContext";
 
 export const globalStyles = `
   @keyframes flyInCircle {
@@ -35,96 +35,120 @@ export const globalStyles = `
 // 1. Hàm lấy ID YouTube siêu mạnh (chấp nhận mọi định dạng)
 export const getYouTubeId = (url: string) => {
   if (!url) return null;
-  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+  const regExp =
+    /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
   const match = url.match(regExp);
-  return (match && match[7].length === 11) ? match[7] : null;
+  return match && match[7].length === 11 ? match[7] : null;
 };
 
 // 2. Hàm lấy Thumbnail chất lượng cao từ ID
-export const getYouTubeThumbnail = (id: string) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+export const getYouTubeThumbnail = (id: string) =>
+  `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 
 export const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
 // 3. Tìm kiếm iTunes (Chỉ lấy Metadata, KHÔNG tạo link search nữa)
 export const searchMusicDatabase = async (query: string) => {
   try {
-    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`);
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=20`,
+    );
     if (!response.ok) throw new Error("iTunes API Error");
     const data = await response.json();
-    return data.results && data.results.length > 0 ? data.results.map((item: any) => ({
-      id: item.trackId,
-      title: item.trackName,
-      artist: item.artistName,
-      album: item.collectionName,
-      year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
-      thumbnail: item.artworkUrl100.replace('100x100bb', '600x600bb'),
-      trackUrl: "" // Để trống để người dùng tự paste link chuẩn
-    })) : [];
-  } catch (error) { console.error("Music Search Error:", error); return []; }
+    return data.results && data.results.length > 0
+      ? data.results.map((item: any) => ({
+          id: item.trackId,
+          title: item.trackName,
+          artist: item.artistName,
+          album: item.collectionName,
+          year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
+          thumbnail: item.artworkUrl100.replace("100x100bb", "600x600bb"),
+          trackUrl: "", // Để trống để người dùng tự paste link chuẩn
+        }))
+      : [];
+  } catch (error) {
+    console.error("Music Search Error:", error);
+    return [];
+  }
 };
 
 export const getMoodSearchQuery = (moodId: string) => {
   switch (moodId) {
-    case 'joy': return ['happy upbeat pop', 'summer vibes', 'energetic dance'];
-    case 'sad': return ['sad piano ballad', 'melancholic acoustic', 'heartbreak songs'];
-    case 'anger': return ['heavy metal rock', 'intense workout music'];
-    case 'empty': return ['lofi hip hop', 'ambient space music', 'deep focus music'];
-    case 'dream': return ['dream pop', 'ethereal shoegaze', 'ambient electronic'];
-    case 'heal': return ['healing frequencies', 'nature sounds music', 'meditation piano'];
-    default: return ['relaxing music'];
+    case "joy":
+      return ["happy upbeat pop", "summer vibes", "energetic dance"];
+    case "sad":
+      return ["sad piano ballad", "melancholic acoustic", "heartbreak songs"];
+    case "anger":
+      return ["heavy metal rock", "intense workout music"];
+    case "empty":
+      return ["lofi hip hop", "ambient space music", "deep focus music"];
+    case "dream":
+      return ["dream pop", "ethereal shoegaze", "ambient electronic"];
+    case "heal":
+      return ["healing frequencies", "nature sounds music", "meditation piano"];
+    default:
+      return ["relaxing music"];
   }
 };
 
 export const getMascotMessage = (moodId: string) => {
   switch (moodId) {
-    case 'joy': return "Năng lượng tuyệt vời! Ta tìm thấy thứ này để bồ 'quẩy' nè!";
-    case 'sad': return "Ta biết bồ đang buồn. Hy vọng giai điệu này sẽ là cái ôm ấm áp.";
-    case 'anger': return "Woah, nóng nảy thế! Xả hết ra với bài này đi!";
-    case 'empty': return "Đôi khi ta cần khoảng lặng. Thử bài này xem, nó như trôi giữa vũ trụ vậy.";
-    case 'dream': return "Muggle đang mơ mộng à? Bài này sẽ đưa bồ đi xa hơn nữa.";
-    case 'heal': return "Hít thở sâu nào... Giai điệu chữa lành dành riêng cho bồ đây.";
-    default: return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
+    case "joy":
+      return "Năng lượng tuyệt vời! Ta tìm thấy thứ này để bồ 'quẩy' nè!";
+    case "sad":
+      return "Ta biết bồ đang buồn. Hy vọng giai điệu này sẽ là cái ôm ấm áp.";
+    case "anger":
+      return "Woah, nóng nảy thế! Xả hết ra với bài này đi!";
+    case "empty":
+      return "Đôi khi ta cần khoảng lặng. Thử bài này xem, nó như trôi giữa vũ trụ vậy.";
+    case "dream":
+      return "Muggle đang mơ mộng à? Bài này sẽ đưa bồ đi xa hơn nữa.";
+    case "heal":
+      return "Hít thở sâu nào... Giai điệu chữa lành dành riêng cho bồ đây.";
+    default:
+      return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
 // src/rooms/utils.ts (Thêm vào cuối file)
 
-import { AlbumItem } from '../../contexts/DataContext';
-
 // Hàm tính điểm để sắp xếp bài hát lên bảng gợi ý
-export const getSmartRecommendations = (allTracks: AlbumItem[], limit: number = 5) => {
+export const getSmartRecommendations = (
+  allTracks: AlbumItem[],
+  limit: number = 5,
+) => {
   const now = Date.now();
   const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
 
-  const scoredTracks = allTracks.map(track => {
+  const scoredTracks = allTracks.map((track) => {
     let score = 0;
 
     // 1. Điểm lượt nghe (Giả sử bạn có trường playCount, nếu chưa có hãy mặc định là 0 hoặc random nhẹ để test)
     // Nếu chưa có field playCount trong data, tạm thời coi như track.id là seed để random (hoặc bạn cần thêm field này vào DB)
-    const plays = (track as any).playCount || 0; 
-    score += plays * 1; 
+    const plays = (track as any).playCount || 0;
+    score += plays * 1;
 
     // 2. Điểm độ mới (Ưu tiên bài thêm trong vòng 1 tuần)
     // Giả sử có trường addedAt, nếu không thì dùng logic ID lớn = mới hơn (tạm thời)
-    const isNew = (track as any).addedAt ? (now - (track as any).addedAt < ONE_WEEK) : false;
+    const isNew = (track as any).addedAt
+      ? now - (track as any).addedAt < ONE_WEEK
+      : false;
     if (isNew) score += 50; // Cộng điểm cực lớn cho bài mới
 
     // 3. Điểm Yêu thích (Boost)
     // Nếu bài được nghe nhiều MÀ CÒN là yêu thích -> Tăng gấp đôi sức mạnh
     if (track.isFavorite) {
-      score = score * 1.5 + 20; 
+      score = score * 1.5 + 20;
     }
 
     return { ...track, _score: score };
   });
 
   // Sắp xếp giảm dần theo điểm và lấy top
-  return scoredTracks
-    .sort((a, b) => b._score - a._score)
-    .slice(0, limit);
+  return scoredTracks.sort((a, b) => b._score - a._score).slice(0, limit);
 };
 
 // src/rooms/utils.ts
@@ -132,33 +156,33 @@ export const getSmartRecommendations = (allTracks: AlbumItem[], limit: number = 
 // ... (Giữ nguyên các code cũ phía trên)
 
 // --- MỚI: Color Extraction Logic ---
-import ColorThief from 'colorthief';
+import ColorThief from "colorthief";
 
 // src/rooms/utils.ts
 
 // ... giữ nguyên các phần trên (imports cũ, helper functions cũ) ...
 
 // --- MỚI: Color Extraction Logic (Sử dụng fast-average-color) ---
-import { FastAverageColor } from 'fast-average-color';
+import { FastAverageColor } from "fast-average-color";
 
 export const getDominantColor = async (imageUrl: string): Promise<string> => {
   // 1. Kiểm tra môi trường để tránh lỗi Server (Vercel Build)
-  if (typeof window === 'undefined') return '#0f172a';
-  if (!imageUrl) return '#0f172a';
+  if (typeof window === "undefined") return "#0f172a";
+  if (!imageUrl) return "#0f172a";
 
   try {
     const fac = new FastAverageColor();
     // 2. Lấy màu trung bình từ ảnh
     const color = await fac.getColorAsync(imageUrl, {
-      algorithm: 'dominant', // Lấy màu chủ đạo
-      ignoredColor: [255, 255, 255, 255] // Bỏ qua màu trắng (nếu cần)
+      algorithm: "dominant", // Lấy màu chủ đạo
+      ignoredColor: [255, 255, 255, 255], // Bỏ qua màu trắng (nếu cần)
     });
-    
+
     // 3. Trả về mã màu (hex hoặc rgb)
-    return color.rgba; 
+    return color.rgba;
   } catch (e) {
     // Nếu lỗi (do ảnh chặn bảo mật hoặc lỗi link), trả về màu tối mặc định
     console.error("Lỗi lấy màu:", e);
-    return '#0f172a';
+    return "#0f172a";
   }
 };
