@@ -17,6 +17,24 @@ interface AudioRoomProps {
     initialMood?: string;
     onExit: () => void;
 }
+// Import 2 món mới
+import { CrystalBall, MysteryOverlay } from './audiosubComponents';
+
+// ... (Trong phần return của AudioRoom) ...
+
+// 1. Đặt Quả Cầu (Luôn hiện, trừ khi đang xem Modal)
+{!mysteryItem && <CrystalBall onClick={handleSummonMystery} />}
+
+// 2. Đặt Overlay (Hiện khi có kết quả)
+{mysteryItem && (
+  <MysteryOverlay 
+     item={mysteryItem} 
+     onClose={() => setMysteryItem(null)}
+     onPlay={() => { playTrackNow(mysteryItem); setMysteryItem(null); }}
+     onRetry={handleSummonMystery} 
+  />
+)}
+
 
 const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   // --- STATE QUẢN LÝ DỮ LIỆU ---
