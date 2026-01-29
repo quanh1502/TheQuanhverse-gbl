@@ -58,12 +58,7 @@ const App: React.FC = () => {
     </DataProvider>
   );
 };
-/* --- Dán vào cuối file index.css hoặc App.css --- */
 
-/* 1. Hiệu ứng trôi lơ lửng (cho Quả cầu) */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
 }
 
 .animate-float-delayed {
