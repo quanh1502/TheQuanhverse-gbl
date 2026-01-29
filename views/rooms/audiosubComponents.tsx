@@ -236,7 +236,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   );
 };
 
-// --- 3. SPOTLIGHT HERO (REDESIGNED: LUXURY WHITE BORDER & GLOW) ---
+// --- 3. SPOTLIGHT HERO (FIXED: AGGRESSIVE 3D POP & GLOW) ---
 export const SpotlightHero = ({
   item,
   onClick,
@@ -253,8 +253,9 @@ export const SpotlightHero = ({
     ((item as any).playCount > 10 || item.description?.includes("Gợi ý"));
 
   return (
-    <div className="relative w-full mb-16 group cursor-pointer animate-appear-from-void min-h-[420px] flex items-center justify-center py-8 px-4">
-      {/* Navigation Buttons - Giữ nguyên logic, đẩy vị trí ra xa hơn một chút để không dính vào viền */}
+    <div className="relative w-full mb-16 group cursor-pointer animate-appear-from-void min-h-[400px] flex items-center justify-center py-8 px-4">
+      
+      {/* Navigation Buttons - Đẩy ra xa hơn để không dính vào viền to */}
       {total > 1 && (
         <>
           <div
@@ -262,7 +263,7 @@ export const SpotlightHero = ({
               e.stopPropagation();
               onPrev();
             }}
-            className="absolute left-0 xl:-left-16 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950 hover:bg-white hover:text-black text-white rounded-full border-2 border-white/20 transition-all cursor-pointer hover:scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+            className="absolute left-2 xl:-left-16 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950 text-white rounded-full border-2 border-white/30 hover:border-white transition-all cursor-pointer hover:scale-110 hover:shadow-[0_0_20px_white]"
           >
             <ChevronLeft size={28} />
           </div>
@@ -271,101 +272,99 @@ export const SpotlightHero = ({
               e.stopPropagation();
               onNext();
             }}
-            className="absolute right-0 xl:-right-16 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950 hover:bg-white hover:text-black text-white rounded-full border-2 border-white/20 transition-all cursor-pointer hover:scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+            className="absolute right-2 xl:-right-16 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950 text-white rounded-full border-2 border-white/30 hover:border-white transition-all cursor-pointer hover:scale-110 hover:shadow-[0_0_20px_white]"
           >
             <ChevronRight size={28} />
           </div>
         </>
       )}
 
-      {/* THE MAIN CARD - Thiết kế mới: Viền Trắng Dày + Glow + Tách biệt nền */}
+      {/* THE MAIN CARD - CẬP NHẬT GIAO DIỆN MỚI TẠI ĐÂY */}
       <div
         onClick={onClick}
         className={`
             relative w-full max-w-6xl overflow-hidden rounded-[2.5rem]
             
-            /* --- YÊU CẦU 1: VIỀN TRẮNG & DÀY --- */
+            /* 1. VIỀN: Dày 4px, Trắng tinh */
             border-[4px] border-white
             
-            /* --- YÊU CẦU 1 (Tiếp): HIỆU ỨNG PHÁT SÁNG (GLOW) TỪ VIỀN --- */
-            /* Layer shadow đầu tiên là glow trắng, layer sau là bóng đổ đen tạo độ sâu */
-            shadow-[0_0_30px_rgba(255,255,255,0.3),_0_20px_80px_rgba(0,0,0,0.95)]
+            /* 2. GLOW & SHADOW: Tạo hiệu ứng nổi cực mạnh */
+            /* Layer 1: Glow trắng sáng tỏa ra xung quanh (opacity 0.4) */
+            /* Layer 2: Bóng đen cực đậm phía dưới để tách nền */
+            shadow-[0_0_40px_-5px_rgba(255,255,255,0.4),_0_30px_70px_rgba(0,0,0,1)]
             
-            /* --- YÊU CẦU 2: TÁCH BIỆT KHỐI (SEPARATION) --- */
-            /* Nền đậm màu hơn để che background phía sau, tạo cảm giác thẻ bài đặc */
-            bg-slate-950/95 backdrop-blur-3xl
+            /* 3. NỀN: Đậm hơn, ít trong suốt hơn để tạo cảm giác "vật thể rắn" */
+            bg-slate-900/90 backdrop-blur-3xl
             
-            /* Hiệu ứng Hover: Nổi lên cao hơn và sáng hơn */
-            transition-all duration-500 transform 
-            hover:-translate-y-1
-            hover:shadow-[0_0_50px_rgba(255,255,255,0.5),_0_40px_100px_rgba(0,0,0,1)]
+            /* Hiệu ứng Hover: Nhấc bổng thẻ lên */
+            transition-all duration-500 ease-out transform 
+            hover:-translate-y-2
+            hover:shadow-[0_0_60px_-5px_rgba(255,255,255,0.6),_0_50px_100px_rgba(0,0,0,1)]
         `}
       >
-        {/* Decorative Background Effects (Bên trong thẻ) */}
-        <div className="absolute -top-24 -right-24 w-[600px] h-[600px] bg-gradient-to-br from-cyan-500/20 to-blue-600/5 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="absolute -bottom-24 -left-24 w-[500px] h-[500px] bg-gradient-to-tr from-purple-500/20 to-pink-600/5 rounded-full blur-[100px] pointer-events-none"></div>
+        {/* Decorative Background Effects (Làm dịu bên trong thẻ) */}
+        <div className="absolute -top-1/2 -right-1/2 w-[800px] h-[800px] bg-gradient-to-br from-cyan-500/20 to-transparent rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute -bottom-1/2 -left-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-purple-500/20 to-transparent rounded-full blur-[100px] pointer-events-none"></div>
 
         {/* Nội dung chính */}
         <div
           key={item.id}
-          className="relative z-10 p-8 md:p-14 flex flex-col md:flex-row items-center gap-10 md:gap-20 h-full animate-slide-in"
+          className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 md:gap-16 h-full animate-slide-in"
         >
           {/* Album Art Section */}
-          <div className="relative shrink-0 group-hover:scale-105 transition-transform duration-700 ease-out">
-             {/* Glow sau ảnh bìa */}
+          <div className="relative shrink-0 group-hover:scale-105 transition-transform duration-500">
+             {/* Glow sau ảnh */}
             <div
               className={`absolute inset-0 rounded-[2rem] ${
                 isTrendingHit ? "bg-amber-400" : "bg-cyan-400"
-              } blur-[50px] opacity-30 group-hover:opacity-50 transition-opacity duration-700`}
+              } blur-[50px] opacity-40 group-hover:opacity-60 transition-opacity duration-700`}
             ></div>
             
             {/* Khung ảnh */}
-            <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-[2rem] overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900">
+            <div className="relative w-60 h-60 md:w-80 md:h-80 rounded-[2rem] overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
                 <img
                 src={item.coverUrl}
                 alt={item.title}
-                className="w-full h-full object-cover transform transition-transform duration-1000 group-hover:scale-110"
+                className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-110"
                 />
-                 {/* Shine effect quét qua ảnh */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </div>
 
-            {/* Badges - Đặt nổi lên trên khung ảnh */}
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-white text-slate-950 text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-2 whitespace-nowrap z-20 border-2 border-transparent group-hover:border-cyan-200 transition-all">
+            {/* Badges */}
+            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-white text-slate-950 text-xs font-black uppercase tracking-wider px-5 py-2 rounded-full shadow-xl flex items-center gap-2 whitespace-nowrap z-20 border border-white">
               <Sparkles
-                size={16}
-                className={isTrendingHit ? "text-amber-500" : "text-cyan-500"}
+                size={14}
+                className={isTrendingHit ? "text-amber-600" : "text-cyan-600"}
               />
               {isTrendingHit ? "Trending Hit" : "Spotlight"}
             </div>
           </div>
 
           {/* Info Section */}
-          <div className="flex-1 text-center md:text-left space-y-6 md:space-y-8">
+          <div className="flex-1 text-center md:text-left space-y-6">
             {/* Top Meta */}
             <div className="flex items-center justify-center md:justify-start gap-4">
               <span className={`
-                text-[11px] font-bold px-4 py-1.5 rounded-full uppercase tracking-[0.2em] border backdrop-blur-md
+                text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-[0.2em] border backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.1)]
                 ${isTrendingHit 
-                    ? "bg-amber-500/10 text-amber-300 border-amber-500/50 box-shadow-amber" 
-                    : "bg-cyan-500/10 text-cyan-300 border-cyan-500/50 box-shadow-cyan"
+                    ? "bg-amber-500/20 text-amber-200 border-amber-500/50" 
+                    : "bg-cyan-500/20 text-cyan-200 border-cyan-500/50"
                 }
               `}>
                  {isTrendingHit ? "Editor's Choice" : "Fresh Drop"}
               </span>
-              <div className="h-px w-16 bg-white/30"></div>
-              <span className="text-sm text-white/60 font-mono">
-                 {item.year || "Unknown"}
+              <div className="h-px w-10 bg-white/30"></div>
+              <span className="text-sm text-white/70 font-mono font-bold">
+                 {item.year || "2025"}
               </span>
             </div>
 
             {/* Title & Artist */}
-            <div className="space-y-2">
-                <h2 className="text-4xl md:text-7xl font-black text-white leading-[0.9] tracking-tighter drop-shadow-lg">
+            <div>
+                <h2 className="text-4xl md:text-6xl font-black text-white leading-[1] tracking-tighter drop-shadow-2xl mb-4">
                 {item.title}
                 </h2>
                 <div className="flex items-center justify-center md:justify-start gap-3">
-                    <p className="text-xl md:text-3xl text-slate-200 font-light tracking-wide">
+                    <p className="text-xl md:text-2xl text-slate-200 font-light tracking-wide">
                         {item.artist}
                     </p>
                     {item.isFavorite && <Heart size={24} className="text-red-500 fill-current animate-pulse" />}
@@ -374,18 +373,18 @@ export const SpotlightHero = ({
 
             {/* Description */}
             {item.description && (
-              <p className="text-base md:text-lg text-slate-400 max-w-xl mx-auto md:mx-0 leading-relaxed border-l-4 border-white/20 pl-6 bg-gradient-to-r from-white/5 to-transparent py-2 rounded-r-lg">
+              <p className="text-sm md:text-base text-slate-300 max-w-lg mx-auto md:mx-0 leading-relaxed border-l-4 border-white/30 pl-4 bg-white/5 py-2 rounded-r-lg">
                 {item.description}
               </p>
             )}
 
-            {/* Action Button - Thiết kế nút bấm lớn hơn, tương xứng với khung viền */}
-            <div className="pt-6 flex items-center justify-center md:justify-start">
-              <button className="group/btn relative px-10 py-5 bg-white text-slate-950 rounded-full font-black text-sm tracking-[0.2em] uppercase overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.6)]">
-                 <span className="relative z-10 flex items-center gap-3">
-                    <Play size={20} fill="currentColor" /> Play Now
+            {/* Action Button */}
+            <div className="pt-4 flex items-center justify-center md:justify-start gap-4">
+              <button className="relative px-10 py-4 bg-white text-slate-950 rounded-full font-black text-sm tracking-widest uppercase overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.7)] group/btn">
+                 <span className="relative z-10 flex items-center gap-2">
+                    <Play size={18} fill="currentColor" /> Play Now
                  </span>
-                 <div className="absolute inset-0 bg-gradient-to-r from-gray-200 to-white opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+                 <div className="absolute inset-0 bg-gradient-to-r from-slate-200 to-white opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               </button>
             </div>
           </div>
@@ -393,14 +392,14 @@ export const SpotlightHero = ({
 
         {/* Pagination Dots */}
         {total > 1 && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20 bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-20 bg-black/40 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
             {Array.from({ length: Math.min(total, 5) }).map((_, idx) => (
               <div
                 key={idx}
-                className={`h-2 rounded-full transition-all duration-500 ${
+                className={`h-1.5 rounded-full transition-all duration-500 ${
                   idx === currentIndex % 5 
-                  ? "bg-white w-10 shadow-[0_0_10px_white]" 
-                  : "bg-white/30 w-2 hover:bg-white/60"
+                  ? "bg-white w-8 shadow-[0_0_10px_white]" 
+                  : "bg-white/30 w-1.5 hover:bg-white/60"
                 }`}
               ></div>
             ))}
