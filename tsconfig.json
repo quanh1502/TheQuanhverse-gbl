@@ -18,5 +18,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["views", "src", "*.ts", "*.tsx"],
+  "exclude": ["node_modules"]
 }

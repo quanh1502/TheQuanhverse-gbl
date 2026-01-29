@@ -1,3 +1,4 @@
+// src/rooms/utils.ts
 import { AlbumItem } from "../../contexts/DataContext";
 
 export const globalStyles = `
@@ -32,7 +33,7 @@ export const globalStyles = `
 
 // --- UTILITIES CỐT LÕI ---
 
-// 1. Hàm lấy ID YouTube siêu mạnh (chấp nhận mọi định dạng)
+// 1. Hàm lấy ID YouTube siêu mạnh
 export const getYouTubeId = (url: string) => {
   if (!url) return null;
   const regExp =
@@ -51,7 +52,7 @@ export const formatTime = (seconds: number) => {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
-// 3. Tìm kiếm iTunes (Chỉ lấy Metadata, KHÔNG tạo link search nữa)
+// 3. Tìm kiếm iTunes
 export const searchMusicDatabase = async (query: string) => {
   try {
     const response = await fetch(
@@ -67,7 +68,7 @@ export const searchMusicDatabase = async (query: string) => {
           album: item.collectionName,
           year: item.releaseDate ? item.releaseDate.substring(0, 4) : "",
           thumbnail: item.artworkUrl100.replace("100x100bb", "600x600bb"),
-          trackUrl: "", // Để trống để người dùng tự paste link chuẩn
+          trackUrl: "",
         }))
       : [];
   } catch (error) {
@@ -113,76 +114,55 @@ export const getMascotMessage = (moodId: string) => {
       return "Chào mừng đến với phòng nhạc của Quanh! Tận hưởng nhé!";
   }
 };
-// src/rooms/utils.ts (Thêm vào cuối file)
 
-// Hàm tính điểm để sắp xếp bài hát lên bảng gợi ý
+// Hàm tính điểm Trending
 export const getSmartRecommendations = (
   allTracks: AlbumItem[],
   limit: number = 5,
 ) => {
   const now = Date.now();
   const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-
   const scoredTracks = allTracks.map((track) => {
     let score = 0;
-
-    // 1. Điểm lượt nghe (Giả sử bạn có trường playCount, nếu chưa có hãy mặc định là 0 hoặc random nhẹ để test)
-    // Nếu chưa có field playCount trong data, tạm thời coi như track.id là seed để random (hoặc bạn cần thêm field này vào DB)
     const plays = (track as any).playCount || 0;
     score += plays * 1;
-
-    // 2. Điểm độ mới (Ưu tiên bài thêm trong vòng 1 tuần)
-    // Giả sử có trường addedAt, nếu không thì dùng logic ID lớn = mới hơn (tạm thời)
     const isNew = (track as any).addedAt
       ? now - (track as any).addedAt < ONE_WEEK
       : false;
-    if (isNew) score += 50; // Cộng điểm cực lớn cho bài mới
-
-    // 3. Điểm Yêu thích (Boost)
-    // Nếu bài được nghe nhiều MÀ CÒN là yêu thích -> Tăng gấp đôi sức mạnh
-    if (track.isFavorite) {
-      score = score * 1.5 + 20;
-    }
-
+    if (isNew) score += 50;
+    if (track.isFavorite) score = score * 1.5 + 20;
     return { ...track, _score: score };
   });
-
-  // Sắp xếp giảm dần theo điểm và lấy top
   return scoredTracks.sort((a, b) => b._score - a._score).slice(0, limit);
 };
 
-// src/rooms/utils.ts
-
-// ... (Giữ nguyên các code cũ phía trên)
-
-// --- MỚI: Color Extraction Logic ---
-import ColorThief from "colorthief";
-
-// src/rooms/utils.ts
-
-// ... giữ nguyên các phần trên (imports cũ, helper functions cũ) ...
-
-// --- MỚI: Color Extraction Logic (Sử dụng fast-average-color) ---
-import { FastAverageColor } from "fast-average-color";
-
+// --- HÀM LẤY MÀU CHỦ ĐẠO (KHÔNG DÙNG THƯ VIỆN NGOÀI) ---
+// Giúp tránh lỗi 'fast-average-color not found'
 export const getDominantColor = async (imageUrl: string): Promise<string> => {
-  // 1. Kiểm tra môi trường để tránh lỗi Server (Vercel Build)
-  if (typeof window === "undefined") return "#0f172a";
-  if (!imageUrl) return "#0f172a";
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = imageUrl;
 
-  try {
-    const fac = new FastAverageColor();
-    // 2. Lấy màu trung bình từ ảnh
-    const color = await fac.getColorAsync(imageUrl, {
-      algorithm: "dominant", // Lấy màu chủ đạo
-      ignoredColor: [255, 255, 255, 255], // Bỏ qua màu trắng (nếu cần)
-    });
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve("#0f172a");
+          return;
+        }
 
-    // 3. Trả về mã màu (hex hoặc rgb)
-    return color.rgba;
-  } catch (e) {
-    // Nếu lỗi (do ảnh chặn bảo mật hoặc lỗi link), trả về màu tối mặc định
-    console.error("Lỗi lấy màu:", e);
-    return "#0f172a";
-  }
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        resolve(`rgb(${r},${g},${b})`);
+      } catch (e) {
+        resolve("#0f172a"); // Fallback nếu lỗi bảo mật ảnh
+      }
+    };
+
+    img.onerror = () => resolve("#0f172a"); // Fallback nếu ảnh lỗi
+  });
 };
