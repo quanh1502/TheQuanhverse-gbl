@@ -236,7 +236,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   );
 };
 
-// --- 3. SPOTLIGHT HERO (GIỮ NGUYÊN) ---
+// --- 3. SPOTLIGHT HERO (REDESIGNED: LUXURY WHITE BORDER) ---
 export const SpotlightHero = ({
   item,
   onClick,
@@ -247,13 +247,14 @@ export const SpotlightHero = ({
 }: any) => {
   if (!item) return null;
 
+  // Logic giữ nguyên
   const isTrendingHit =
     item.isFavorite &&
     ((item as any).playCount > 10 || item.description?.includes("Gợi ý"));
 
   return (
-    <div className="relative w-full mb-12 group cursor-pointer animate-appear-from-void min-h-[350px] flex items-center justify-center py-4">
-      {/* Navigation Buttons */}
+    <div className="relative w-full mb-16 group cursor-pointer animate-appear-from-void min-h-[380px] flex items-center justify-center py-6 px-4">
+      {/* Navigation Buttons - Giữ nguyên logic, tinh chỉnh style cho hợp theme mới */}
       {total > 1 && (
         <>
           <div
@@ -261,122 +262,136 @@ export const SpotlightHero = ({
               e.stopPropagation();
               onPrev();
             }}
-            className="absolute left-0 md:-left-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110"
+            className="absolute left-0 xl:-left-12 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950/50 hover:bg-white hover:text-black text-white backdrop-blur-md rounded-full border border-white/20 transition-all cursor-pointer hover:scale-110 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={28} />
           </div>
           <div
             onClick={(e) => {
               e.stopPropagation();
               onNext();
             }}
-            className="absolute right-0 md:-right-4 top-1/2 -translate-y-1/2 z-40 p-3 bg-slate-800/80 hover:bg-cyan-500 text-white/70 hover:text-white backdrop-blur-md rounded-full border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110"
+            className="absolute right-0 xl:-right-12 top-1/2 -translate-y-1/2 z-50 p-4 bg-slate-950/50 hover:bg-white hover:text-black text-white backdrop-blur-md rounded-full border border-white/20 transition-all cursor-pointer hover:scale-110 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={28} />
           </div>
         </>
       )}
 
-      {/* THE CARD CONTAINER */}
+      {/* THE MAIN CARD - Thiết kế mới */}
       <div
         onClick={onClick}
         className={`
-                    relative w-full max-w-5xl overflow-hidden rounded-3xl 
-                    border-[3px] ${isTrendingHit ? "border-amber-400/50" : "border-cyan-400/30"} 
-                    bg-slate-900/40 backdrop-blur-xl 
-                    shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)]
-                    hover:shadow-[0_30px_80px_-10px_rgba(6,182,212,0.3)]
-                    hover:border-cyan-400/60
-                    transition-all duration-500 transform hover:-translate-y-2
-                `}
+            relative w-full max-w-6xl overflow-hidden rounded-[2.5rem]
+            /* YÊU CẦU: Viền Trắng, Dày dặn */
+            border-[3px] border-white
+            /* YÊU CẦU: Hiệu ứng Glow từ viền */
+            shadow-[0_0_25px_rgba(255,255,255,0.25),_0_30px_60px_-10px_rgba(0,0,0,0.9)]
+            /* YÊU CẦU: Nổi khối tách biệt (Dùng nền tối đậm + blur cao) */
+            bg-slate-950/80 backdrop-blur-3xl
+            transition-all duration-500 transform 
+            hover:scale-[1.01] hover:shadow-[0_0_40px_rgba(255,255,255,0.4),_0_40px_80px_rgba(0,0,0,0.95)]
+        `}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-transparent opacity-50"></div>
+        {/* Decorative Background Glows */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none mix-blend-screen"></div>
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none mix-blend-screen"></div>
 
-        <div key={`bg-${item.id}`} className="absolute inset-0 z-0">
-          <img
-            src={item.coverUrl}
-            alt=""
-            className="w-full h-full object-cover blur-[50px] opacity-40 scale-125 animate-pulse-glow"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
-        </div>
-
+        {/* Nội dung chính */}
         <div
           key={item.id}
-          className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12 h-full animate-slide-in"
+          className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 md:gap-16 h-full animate-slide-in"
         >
-          {/* Album Art */}
-          <div className="relative w-48 h-48 md:w-64 md:h-64 shrink-0 group-hover:scale-105 transition-transform duration-500">
+          {/* Album Art Section - Đóng khung sang trọng */}
+          <div className="relative shrink-0 group-hover:-translate-y-2 transition-transform duration-500">
+             {/* Glow sau ảnh */}
             <div
-              className={`absolute inset-0 rounded-full ${isTrendingHit ? "bg-amber-500" : "bg-cyan-400"} blur-2xl opacity-20 group-hover:opacity-40 transition-opacity`}
+              className={`absolute inset-0 rounded-[2rem] ${
+                isTrendingHit ? "bg-amber-400" : "bg-cyan-400"
+              } blur-[40px] opacity-20 group-hover:opacity-40 transition-opacity duration-700`}
             ></div>
-            <img
-              src={item.coverUrl}
-              alt={item.title}
-              className={`w-full h-full object-cover rounded-lg shadow-2xl border-2 ${isTrendingHit ? "border-amber-400/50" : "border-white/20"} rotate-3 group-hover:rotate-6 transition-all duration-500`}
-            />
-            <div className="absolute -bottom-4 -right-4 bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/10 shadow-lg flex items-center gap-1">
+            
+            {/* Ảnh bìa */}
+            <div className="relative w-56 h-56 md:w-72 md:h-72 rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl">
+                <img
+                src={item.coverUrl}
+                alt={item.title}
+                className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-110"
+                />
+                 {/* Shine effect trên ảnh */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent opacity-50"></div>
+            </div>
+
+            {/* Badges */}
+            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-white text-slate-950 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full shadow-[0_10px_20px_rgba(0,0,0,0.3)] flex items-center gap-2 whitespace-nowrap z-20">
               <Sparkles
-                size={12}
-                className={isTrendingHit ? "text-amber-400" : "text-cyan-400"}
+                size={14}
+                className={isTrendingHit ? "text-amber-500" : "text-cyan-500"}
               />
-              {isTrendingHit ? "Trending Hit" : "Suggested"}
+              {isTrendingHit ? "Trending Hit" : "Spotlight"}
             </div>
           </div>
 
-          {/* Info */}
-          <div className="flex-1 text-center md:text-left space-y-4">
-            <div className="flex items-center justify-center md:justify-start gap-3">
-              <span
-                className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg border ${isTrendingHit ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"}`}
-              >
-                <Music size={12} /> {isTrendingHit ? "Top Pick" : "New Mix"}
+          {/* Info Section */}
+          <div className="flex-1 text-center md:text-left space-y-6">
+            {/* Top Meta */}
+            <div className="flex items-center justify-center md:justify-start gap-4">
+              <span className={`
+                text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-[0.2em] border backdrop-blur-md
+                ${isTrendingHit 
+                    ? "bg-amber-500/10 text-amber-300 border-amber-500/50" 
+                    : "bg-cyan-500/10 text-cyan-300 border-cyan-500/50"
+                }
+              `}>
+                 {isTrendingHit ? "Editor's Choice" : "Fresh Drop"}
               </span>
-              {total > 1 && (
-                <span className="text-[10px] text-slate-400 font-mono tracking-widest">
-                  {currentIndex + 1} / {total}
-                </span>
-              )}
-            </div>
-
-            <h2 className="text-3xl md:text-5xl font-black text-white leading-tight drop-shadow-lg tracking-tight line-clamp-2 group-hover:text-cyan-200 transition-colors">
-              {item.title}
-            </h2>
-
-            <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-lg text-slate-300 font-medium">
-              <span className="text-cyan-100">{item.artist}</span>
-              <span className="hidden md:inline w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-              <span className="text-sm font-mono opacity-60 bg-white/5 px-2 py-0.5 rounded">
-                {item.year || "Unknown"}
+              <div className="h-px w-12 bg-white/20"></div>
+              <span className="text-xs text-white/40 font-mono">
+                 {item.year || "Unknown"}
               </span>
             </div>
 
+            {/* Title & Artist */}
+            <div>
+                <h2 className="text-4xl md:text-6xl font-black text-white leading-[0.9] tracking-tighter drop-shadow-xl mb-3">
+                {item.title}
+                </h2>
+                <p className="text-xl md:text-2xl text-slate-300 font-light tracking-wide flex items-center justify-center md:justify-start gap-3">
+                    {item.artist}
+                    {item.isFavorite && <Heart size={20} className="text-red-500 fill-current animate-pulse" />}
+                </p>
+            </div>
+
+            {/* Description */}
             {item.description && (
-              <div className="relative mt-2 p-4 bg-white/5 rounded-xl border-l-4 border-cyan-500/50 text-sm text-slate-300 italic max-w-xl text-left">
-                "{item.description}"
-              </div>
+              <p className="text-sm md:text-base text-slate-400 max-w-xl mx-auto md:mx-0 leading-relaxed border-l-2 border-white/20 pl-4">
+                {item.description}
+              </p>
             )}
 
-            <div className="pt-6 flex items-center justify-center md:justify-start gap-4 opacity-90 group-hover:opacity-100 transition-all duration-300">
-              <button className="flex items-center gap-2 bg-white text-slate-950 px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
-                <Play size={20} fill="currentColor" /> PHÁT NGAY
+            {/* Action Button */}
+            <div className="pt-4 flex items-center justify-center md:justify-start">
+              <button className="group/btn relative px-8 py-4 bg-white text-slate-950 rounded-full font-bold text-sm tracking-widest uppercase overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]">
+                 <span className="relative z-10 flex items-center gap-2">
+                    <Play size={18} fill="currentColor" /> Play Now
+                 </span>
+                 <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-white opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               </button>
-              {item.isFavorite && (
-                <div className="p-3 bg-amber-500/20 rounded-full text-amber-400 border border-amber-500/30">
-                  <Heart size={20} fill="currentColor" />
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Pagination Dots */}
+        {/* Pagination Dots (Tinh tế hơn) */}
         {total > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 p-2 bg-black/20 rounded-full backdrop-blur-sm">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-20">
             {Array.from({ length: Math.min(total, 5) }).map((_, idx) => (
               <div
                 key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex % 5 ? "bg-cyan-400 w-6" : "bg-white/30 w-1.5"}`}
+                className={`h-1.5 rounded-full transition-all duration-500 shadow-sm ${
+                  idx === currentIndex % 5 
+                  ? "bg-white w-8 shadow-[0_0_10px_white]" 
+                  : "bg-white/20 w-1.5 hover:bg-white/50"
+                }`}
               ></div>
             ))}
           </div>
