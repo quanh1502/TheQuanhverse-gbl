@@ -1,4 +1,3 @@
-// src/rooms/AudioRoom.tsx
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Headphones,
@@ -9,10 +8,14 @@ import {
   ArrowLeft,
   LayoutGrid,
   Library,
-  Filter,
-  ArrowUpDown,
+  ArrowDownCircle,
   Play,
   LogOut,
+  TrendingUp,
+  Hash,
+  Sparkles,
+  Disc,
+  MoreHorizontal,
 } from "lucide-react";
 import RavenclawTaurusMascot from "../../components/RavenclawTaurusMascot";
 import { AlbumItem, AudioShelfData } from "../../contexts/DataContext";
@@ -26,7 +29,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-// --- IMPORT CÁC UTILS (Đảm bảo đã thêm getDominantColor vào utils) ---
+// --- IMPORT UTILS (GIỮ NGUYÊN) ---
 import {
   globalStyles,
   getYouTubeId,
@@ -38,7 +41,6 @@ import {
 import {
   FlyingBroomMascot,
   MiniPlayer,
-  SpotlightHero,
   JewelCase3D,
   AddNewAlbum,
 } from "./audiosubComponents";
@@ -57,7 +59,7 @@ interface AudioRoomProps {
 }
 
 const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
-  // --- STATE QUẢN LÝ DỮ LIỆU ---
+  // --- STATE QUẢN LÝ DỮ LIỆU (LOGIC GỐC) ---
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
@@ -69,8 +71,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     "newest" | "oldest" | "az" | "trending"
   >("newest");
 
-  // --- STATE MÀU SẮC (MỚI) ---
-  const [ambientColor, setAmbientColor] = useState<string>("#0f172a"); // Mặc định là màu tối
+  // --- STATE MÀU SẮC ---
+  const [ambientColor, setAmbientColor] = useState<string>("#0f172a");
 
   const PREVIEW_LIMIT = 8;
   const [viewingItem, setViewingItem] = useState<AlbumItem | null>(null);
@@ -107,15 +109,14 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     isLoopingRef.current = isLooping;
   }, [isLooping]);
 
-  // --- EFFECT: XỬ LÝ ĐỔI MÀU PHÒNG (MỚI) ---
+  // --- EFFECT: XỬ LÝ ĐỔI MÀU PHÒNG ---
   useEffect(() => {
     if (activeTrack?.coverUrl) {
-      // Lấy màu chủ đạo từ bìa album
       getDominantColor(activeTrack.coverUrl).then((color) => {
         setAmbientColor(color);
       });
     } else {
-      setAmbientColor("#0f172a"); // Reset về màu mặc định nếu không có bài hát
+      setAmbientColor("#0f172a");
     }
   }, [activeTrack]);
 
@@ -439,13 +440,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     return () => clearInterval(timer);
   }, [spotlightItems]);
 
-  const nextSpotlight = () =>
-    setSpotlightIndex((prev) => (prev + 1) % spotlightItems.length);
-  const prevSpotlight = () =>
-    setSpotlightIndex(
-      (prev) => (prev - 1 + spotlightItems.length) % spotlightItems.length,
-    );
-
   const allTracks = useMemo(() => {
     let tracks: { item: AlbumItem; shelfId: number }[] = [];
     shelves.forEach((shelf) => {
@@ -538,208 +532,542 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     setDraggedItem(null);
   };
 
+  const scrollToShelf = (shelfId: number) => {
+    const el = shelfRefs.current.get(shelfId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Gradient presets for Quick Access Shelves
+  const shelfGradients = [
+    "from-purple-600 to-blue-600",
+    "from-emerald-500 to-teal-600",
+    "from-orange-500 to-red-600",
+    "from-pink-500 to-rose-500",
+    "from-cyan-500 to-blue-500",
+    "from-violet-600 to-indigo-600",
+  ];
+
   const focusedShelf = focusedShelfId
     ? shelves.find((s) => s.id === focusedShelfId)
     : null;
 
+  // --- NEW COMPONENT: CINEMATIC HERO (FIXED VISUALS) ---
+  const renderCinematicHero = () => {
+    if (spotlightItems.length === 0) return null;
+    const item = spotlightItems[spotlightIndex];
+
+    return (
+      <div className="relative w-full h-[60vh] min-h-[500px] mb-12 rounded-3xl overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 transition-all duration-700">
+        {/* --- LỚP 1: ẢNH NỀN (QUAN TRỌNG NHẤT) --- */}
+        {/* Fix: Tăng opacity lên 0.6 và giảm blur xuống 2xl để giữ màu sắc */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src={item.coverUrl}
+            alt="Hero Background"
+            className="w-full h-full object-cover blur-2xl opacity-70 scale-110 group-hover:scale-125 transition-transform duration-[2000ms] ease-in-out"
+          />
+          {/* Lớp phủ màu 1: Gradient đen từ dưới lên để làm nổi bật nút bấm */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/40 to-transparent mix-blend-multiply" />
+
+          {/* Lớp phủ màu 2: Gradient đen từ trái sang để làm nổi bật chữ */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#020617] via-[#020617]/60 to-transparent" />
+        </div>
+
+        {/* --- LỚP 2: NỘI DUNG (Text & Ảnh gốc) --- */}
+        <div className="absolute inset-0 z-10 p-8 md:p-12 flex flex-col md:flex-row items-end md:items-center justify-between gap-8">
+          {/* Phần Text (Bên trái) */}
+          <div className="flex-1 max-w-3xl space-y-6 animate-slide-up">
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-cyan-500/20 text-cyan-300 text-[10px] font-bold uppercase tracking-widest rounded-full border border-cyan-500/30 backdrop-blur-md flex items-center gap-1 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                <Sparkles size={10} /> Spotlight
+              </span>
+              <span className="text-white/80 text-xs font-mono uppercase tracking-widest drop-shadow-md">
+                #{spotlightIndex + 1} Trending Now
+              </span>
+            </div>
+
+            <h1 className="text-5xl md:text-7xl font-black text-white font-syne leading-[1.1] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
+              {item.title}
+            </h1>
+
+            <div className="flex items-center gap-4">
+              <p className="text-2xl text-cyan-300 font-bold tracking-wide flex items-center gap-2 drop-shadow-md">
+                <Disc size={24} className="animate-spin-slow" /> {item.artist}
+              </p>
+              <span className="text-white/50 text-xl font-thin">|</span>
+              <p className="text-white/80 text-lg font-mono">
+                {item.year || "2024"}
+              </p>
+            </div>
+
+            <p className="text-slate-300 line-clamp-2 max-w-xl text-lg leading-relaxed drop-shadow-md">
+              {item.description ||
+                "Hãy trải nghiệm không gian âm nhạc đỉnh cao cùng giai điệu này trên The Quanhverse."}
+            </p>
+
+            <div className="flex flex-wrap gap-4 pt-6">
+              <button
+                onClick={() => playSpotlight(item)}
+                className="px-10 py-4 bg-white text-black hover:bg-cyan-400 hover:text-black transition-all rounded-full font-black text-lg flex items-center gap-3 shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:shadow-[0_0_50px_rgba(34,211,238,0.6)] transform hover:-translate-y-1 active:scale-95 duration-300"
+              >
+                <Play size={28} fill="currentColor" /> PHÁT NGAY
+              </button>
+              <button
+                onClick={() => setViewingItem(item)}
+                className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/30 hover:border-white text-white rounded-full font-bold backdrop-blur-md transition-all flex items-center gap-2"
+              >
+                <MoreHorizontal size={24} /> CHI TIẾT
+              </button>
+            </div>
+          </div>
+
+          {/* Phần Ảnh Bìa Gốc (Bên phải - Tạo điểm nhấn thị giác) */}
+          <div className="hidden md:block relative w-[320px] aspect-square shrink-0 group-hover:scale-105 transition-transform duration-500">
+            {/* Glow Effect behind the square */}
+            <div className="absolute inset-0 bg-cyan-500 rounded-2xl blur-[80px] opacity-40 animate-pulse-slow"></div>
+
+            <img
+              src={item.coverUrl}
+              alt={item.title}
+              className="relative w-full h-full object-cover rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/20 rotate-3 group-hover:rotate-6 transition-all duration-500 ease-out z-10"
+            />
+
+            {/* Giant Background Number */}
+            <div className="absolute -bottom-10 -right-10 text-[180px] font-black text-white/5 font-syne z-0 leading-none select-none pointer-events-none">
+              {spotlightIndex + 1}
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Dots */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20">
+          {spotlightItems.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSpotlightIndex(idx)}
+              className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                idx === spotlightIndex
+                  ? "w-12 bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
+                  : "w-2 bg-white/30 hover:bg-white/60"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
   return (
-    // THAY ĐỔI 1: Background Động - Sử dụng style inline để ghi đè màu nền
+    // ROOT CONTAINER
     <div
-      className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 transition-colors duration-1000 ease-in-out"
+      className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 transition-colors duration-1000 ease-in-out font-space"
       style={{
-        background: `radial-gradient(ellipse at top, ${ambientColor} 0%, #0f172a 70%, #000000 100%)`,
+        background: `radial-gradient(circle at 50% -20%, ${ambientColor} 0%, #020617 45%, #000000 100%)`,
       }}
     >
       <style>{globalStyles}</style>
 
+      {/* Hidden Youtube Player */}
       <div
         id="youtube-player"
-        style={{ position: "absolute", top: "-9999px", left: "-9999px" }}
-      ></div>
+        className="absolute pointer-events-none opacity-0"
+      />
 
-      {/* Giữ nguyên các hiệu ứng nền cũ nhưng làm mờ đi một chút để màu chủ đạo nổi bật hơn */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none animate-float"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none animate-float-delayed"></div>
+      {/* Ambient Effects */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-cyan-600/10 rounded-full blur-[150px] mix-blend-screen animate-float-delayed pointer-events-none" />
 
       {/* HEADER */}
-      <div className="z-30 w-full flex flex-col bg-slate-900/50 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all duration-300 shrink-0">
+      <div className="z-30 w-full flex flex-col bg-slate-950/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)] shrink-0 transition-all duration-300">
         {!focusedShelfId && (
-          <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-appear-from-void">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/5 rounded-full border border-white/10 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
-                <Headphones size={24} className="text-cyan-400" />
+          <div className="px-6 py-4 flex flex-col xl:flex-row items-center justify-between gap-6 animate-slide-down">
+            {/* 1. LEFT: Logo Area */}
+            <div className="flex items-center gap-4 group cursor-pointer self-start xl:self-center">
+              <div className="p-3 bg-slate-900/80 rounded-2xl border border-white/10 shadow-[0_0_15px_rgba(34,211,238,0.1)] group-hover:shadow-[0_0_25px_rgba(34,211,238,0.3)] transition-all duration-300">
+                <Headphones
+                  size={24}
+                  className="text-cyan-400 group-hover:text-cyan-300 transition-colors"
+                />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-wider font-mono uppercase">
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 font-syne tracking-wider uppercase">
                   Quanh<span className="text-cyan-400">Zik</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 tracking-[0.2em] uppercase">
-                  Sonic Archive
-                </p>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <p className="text-[10px] text-slate-400 tracking-[0.3em] uppercase font-bold">
+                    Sonic Archive
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                <button
-                  onClick={() => setViewMode("shelves")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === "shelves" ? "bg-cyan-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
-                >
-                  {" "}
-                  <LayoutGrid size={14} /> Kệ Đĩa{" "}
-                </button>
-                <button
-                  onClick={() => setViewMode("library")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold transition-all ${viewMode === "library" ? "bg-purple-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
-                >
-                  {" "}
-                  <Library size={14} /> Thư Viện{" "}
-                </button>
-              </div>
-              <button
-                onClick={onExit}
-                className="p-3 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 shadow-lg hover:shadow-red-500/30"
-                title="Thoát phòng nhạc"
-              >
-                <LogOut size={20} />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* TOOLBAR */}
-        {viewMode === "library" && !focusedShelfId && (
-          <div className="px-6 pb-4 pt-0 animate-fade-in flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2 border-r border-white/10 pr-4">
-              <Filter size={16} className="text-slate-500" />
-              <button
-                onClick={() => setFilterType("all")}
-                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === "all" ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"}`}
-              >
-                Tất Cả
-              </button>
-              <button
-                onClick={() => setFilterType("favorites")}
-                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${filterType === "favorites" ? "bg-amber-400 text-amber-900" : "text-slate-400 hover:text-amber-400"}`}
-              >
-                Yêu Thích
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <ArrowUpDown size={16} className="text-slate-500" />
-              <select
-                value={sortType}
-                onChange={(e) => setSortType(e.target.value as any)}
-                className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer"
-              >
-                <option value="newest" className="bg-slate-900">
-                  Mới Nhất
-                </option>
-                <option value="oldest" className="bg-slate-900">
-                  Cũ Nhất
-                </option>
-                <option value="az" className="bg-slate-900">
-                  Tên A-Z
-                </option>
-                <option
-                  value="trending"
-                  className="bg-slate-900 font-bold text-amber-400"
+            {/* 2. RIGHT: Controls Area (Merged Library Tools + View Switcher) */}
+            <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto justify-end">
+              {/* A. LIBRARY TOOLS (Filter & Sort) - Chỉ hiện khi ở chế độ Library */}
+              {viewMode === "library" && (
+                <div className="flex flex-wrap items-center justify-center gap-3 bg-white/5 p-1.5 rounded-xl border border-white/10 backdrop-blur-md">
+                  {/* Filter Group */}
+                  <div className="flex items-center bg-black/20 rounded-lg p-1">
+                    <button
+                      onClick={() => setFilterType("all")}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-all uppercase tracking-wider ${
+                        filterType === "all"
+                          ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setFilterType("favorites")}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-all uppercase tracking-wider ${
+                        filterType === "favorites"
+                          ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      Favs
+                    </button>
+                  </div>
+
+                  <div className="w-px h-4 bg-white/10"></div>
+
+                  {/* Sort Dropdown */}
+                  <div className="flex items-center gap-2 px-2">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hidden sm:block">
+                      Sort:
+                    </span>
+                    <select
+                      value={sortType}
+                      onChange={(e) => setSortType(e.target.value as any)}
+                      className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer hover:text-cyan-400 transition-colors uppercase border-none focus:ring-0 py-0 pl-0 pr-6"
+                      style={{ backgroundImage: "none" }} // Tùy chọn: ẩn mũi tên mặc định nếu muốn style riêng
+                    >
+                      <option
+                        value="newest"
+                        className="bg-slate-900 text-slate-300"
+                      >
+                        Newest
+                      </option>
+                      <option
+                        value="oldest"
+                        className="bg-slate-900 text-slate-300"
+                      >
+                        Oldest
+                      </option>
+                      <option
+                        value="az"
+                        className="bg-slate-900 text-slate-300"
+                      >
+                        A-Z
+                      </option>
+                      <option
+                        value="trending"
+                        className="bg-slate-900 text-amber-400"
+                      >
+                        ★ Trending
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="w-px h-4 bg-white/10"></div>
+
+                  {/* Count Badge */}
+                  <div className="px-2">
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-2 py-1 rounded">
+                      {allTracks.length}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* B. VIEW SWITCHER & EXIT (Luôn hiển thị) */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/5 backdrop-blur-md">
+                  <button
+                    onClick={() => setViewMode("shelves")}
+                    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                      viewMode === "shelves"
+                        ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/20"
+                        : "text-slate-500 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <LayoutGrid size={14} />{" "}
+                    <span className="hidden sm:inline">Shelves</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("library")}
+                    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                      viewMode === "library"
+                        ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20"
+                        : "text-slate-500 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Library size={14} />{" "}
+                    <span className="hidden sm:inline">List</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={onExit}
+                  className="group relative p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg"
+                  title="Exit Room"
                 >
-                  ★ Thịnh Hành
-                </option>
-              </select>
-            </div>
-            <div className="ml-auto text-xs text-slate-500 font-mono">
-              {" "}
-              {allTracks.length} TRACKS{" "}
+                  <LogOut
+                    size={18}
+                    className="group-hover:-translate-x-0.5 transition-transform"
+                  />
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* BODY */}
+      {/* MAIN CONTENT BODY */}
       <div
-        className={`flex-1 w-full overflow-y-auto scrollbar-hide px-4 z-10 ${activeTrack ? "pb-32" : "pb-10"}`}
+        className={`flex-1 w-full overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent px-4 z-10 ${
+          activeTrack ? "pb-40" : "pb-10"
+        }`}
       >
         <div className="max-w-7xl mx-auto min-h-[500px] pt-6">
-          {!focusedShelfId &&
-            viewMode === "shelves" &&
-            spotlightItems.length > 0 && (
-              <SpotlightHero
-                item={spotlightItems[spotlightIndex]}
-                onClick={() => playSpotlight(spotlightItems[spotlightIndex])}
-                onNext={nextSpotlight}
-                onPrev={prevSpotlight}
-                total={spotlightItems.length}
-                currentIndex={spotlightIndex}
-              />
-            )}
+          {/* 1. CINEMATIC HERO BANNER (REPLACES SPOTLIGHT) */}
+          {!focusedShelfId && viewMode === "shelves" && renderCinematicHero()}
 
+          {/* 2. TOP TRENDING (RE-DESIGNED: ALTERNATING SKEW & BOTTOM INFO) */}
+          {viewMode === "shelves" &&
+            !focusedShelfId &&
+            spotlightItems.length > 0 && (
+              <div className="mb-24 mt-12 animate-fade-in-up delay-100 relative z-20">
+                {/* Title Section */}
+                <div className="flex items-center gap-3 mb-16 px-4">
+                  <div className="p-2 bg-yellow-400/10 rounded-lg border border-yellow-400/20">
+                    <TrendingUp className="text-yellow-400" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black font-syne uppercase tracking-widest text-white italic">
+                      Top 5{" "}
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-600">
+                        Trending
+                      </span>
+                    </h3>
+                    <p className="text-slate-500 text-xs font-mono tracking-widest uppercase mt-1">
+                      Most Watched This Week
+                    </p>
+                  </div>
+                </div>
+
+                {/* LIST CONTAINER */}
+                <div className="flex flex-wrap md:flex-nowrap justify-center items-start gap-6 md:gap-10 px-4 perspective-[1000px]">
+                  {spotlightItems.slice(0, 5).map((item, index) => {
+                    // LOGIC: ALTERNATING SKEW (NGHIÊNG XEN KẼ)
+                    // Thẻ chẵn (0, 2, 4): Nghiêng phải (skew-y-3)
+                    // Thẻ lẻ (1, 3): Nghiêng trái (-skew-y-3)
+                    const isEven = index % 2 === 0;
+                    const skewClass = isEven
+                      ? "skew-y-3 md:translate-y-4" // Nghiêng xuống & Dịch xuống chút để tạo nhịp
+                      : "-skew-y-3"; // Nghiêng lên
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => playSpotlight(item)}
+                        className="group flex flex-col w-full md:w-52 flex-shrink-0 cursor-pointer"
+                      >
+                        {/* --- CARD IMAGE WRAPPER (SKEWED) --- */}
+                        <div
+                          className={`
+                          relative w-full aspect-[2/3] rounded-xl overflow-hidden 
+                          border border-white/10 shadow-2xl bg-slate-900
+                          transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                          ${skewClass}
+                          group-hover:skew-y-0 group-hover:scale-110 group-hover:z-50 group-hover:shadow-[0_20px_50px_rgba(250,204,21,0.3)] group-hover:border-yellow-400/50
+                        `}
+                        >
+                          <img
+                            src={item.coverUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          />
+
+                          {/* Overlay Gradient & Play Button */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                            <div className="w-14 h-14 bg-yellow-400 text-black rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                              <Play
+                                size={28}
+                                fill="currentColor"
+                                className="ml-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* --- INFO SECTION (BELOW CARD) --- */}
+                        {/* Thông tin không bị nghiêng để dễ đọc */}
+                        <div className="flex items-start gap-4 mt-8 px-2 transition-all duration-300 group-hover:-translate-y-2">
+                          {/* BIG NUMBER */}
+                          <div className="flex-shrink-0">
+                            <span
+                              className="text-7xl font-black italic font-syne text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-600 leading-[0.8]"
+                              style={{
+                                WebkitTextStroke: "1px rgba(255,255,255,0.1)",
+                                filter:
+                                  "drop-shadow(0 4px 10px rgba(234, 179, 8, 0.3))",
+                              }}
+                            >
+                              {index + 1}
+                            </span>
+                          </div>
+
+                          {/* TEXT INFO */}
+                          <div className="flex flex-col pt-1 min-w-0">
+                            <h4 className="text-white font-bold text-base leading-tight line-clamp-2 group-hover:text-yellow-400 transition-colors">
+                              {item.title}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-slate-400 text-xs font-mono truncate">
+                                {item.artist}
+                              </p>
+                              {/* Equalizer khi hover */}
+                              <div className="flex gap-0.5 items-end h-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_0.6s_ease-in-out_infinite] h-full"></span>
+                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_0.8s_ease-in-out_infinite] h-1/2"></span>
+                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_1s_ease-in-out_infinite] h-3/4"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          {/* 3. QUICK ACCESS SHELVES */}
+          {viewMode === "shelves" && !focusedShelfId && shelves.length > 0 && (
+            <div className="mb-20 animate-fade-in-up delay-200">
+              <div className="flex items-center gap-3 mb-6 px-2">
+                <Hash className="text-cyan-400" size={20} />
+                <h3 className="text-lg font-bold font-syne uppercase tracking-widest text-slate-300">
+                  Quick Access / Categories
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {shelves.map((shelf, index) => (
+                  <div
+                    key={`shortcut-${shelf.id}`}
+                    onClick={() => scrollToShelf(shelf.id)}
+                    className={`
+                      relative group cursor-pointer overflow-hidden rounded-2xl p-4 h-28
+                      bg-gradient-to-br ${
+                        shelfGradients[index % shelfGradients.length]
+                      }
+                      shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300
+                      flex flex-col justify-between border border-white/10 ring-1 ring-white/5
+                    `}
+                  >
+                    {/* Decor */}
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full blur-2xl transform translate-x-8 -translate-y-8 group-hover:scale-150 transition-transform duration-500" />
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
+
+                    <div className="relative z-10">
+                      <h4 className="font-bold text-white text-base leading-tight drop-shadow-md line-clamp-2 group-hover:tracking-wide transition-all">
+                        {shelf.title}
+                      </h4>
+                    </div>
+
+                    <div className="relative z-10 flex items-end justify-between mt-2">
+                      <span className="text-[10px] font-mono bg-black/20 px-2 py-0.5 rounded-md text-white/90 backdrop-blur-sm border border-white/10">
+                        {shelf.items.length} TRACKS
+                      </span>
+                      <ArrowDownCircle
+                        size={20}
+                        className="text-white/70 group-hover:text-white transition-colors transform group-hover:translate-y-1"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SHELF VIEW (GRID DISPLAY) */}
           {viewMode === "shelves" && !focusedShelfId && (
-            <div className="flex flex-col gap-12 pb-20 mt-8">
+            <div className="flex flex-col gap-16 pb-20">
               {shelves.length === 0 && !isLoading && (
-                <div className="text-center text-slate-500 italic mt-20">
-                  Chưa có kệ nhạc nào. Hãy tạo mới!
+                <div className="flex flex-col items-center justify-center mt-20 opacity-50">
+                  <LayoutGrid size={48} className="text-slate-600 mb-4" />
+                  <p className="text-slate-500 italic font-mono">
+                    Không gian trống rỗng. Khởi tạo dữ liệu ngay.
+                  </p>
                 </div>
               )}
+
               {shelves.map((shelf) => (
                 <div
                   key={shelf.id}
                   ref={(el) => {
                     if (el) shelfRefs.current.set(shelf.id, el);
                   }}
-                  className="relative group transition-all duration-500"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                  }}
+                  className="relative group/shelf transition-all duration-500 bg-white/[0.02] rounded-3xl p-6 border border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                  onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDrop(e, shelf.id)}
                 >
-                  <div className="flex items-end gap-4 mb-6 px-2 border-b border-white/5 pb-2">
+                  {/* Shelf Header */}
+                  <div className="flex items-end gap-4 mb-6 px-2 border-b border-white/5 pb-4">
                     <h2
-                      className="text-xl font-bold text-white hover:text-cyan-400 font-mono uppercase tracking-widest cursor-pointer transition-colors"
+                      className="text-2xl font-bold text-white group-hover/shelf:text-cyan-400 font-syne uppercase tracking-wider cursor-pointer transition-colors"
                       onClick={() => setFocusedShelfId(shelf.id)}
                     >
-                      {" "}
-                      {shelf.title}{" "}
+                      {shelf.title}
                     </h2>
-                    <span className="text-xs text-slate-500 font-mono mb-1">
-                      {shelf.items.length} TRACKS
+                    <span className="text-xs text-slate-500 font-mono mb-1 bg-slate-800 px-2 py-0.5 rounded-full border border-white/5">
+                      {shelf.items.length}
                     </span>
-                    <div className="ml-auto flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                    <div className="ml-auto flex gap-1 opacity-0 group-hover/shelf:opacity-100 transition-all transform translate-x-4 group-hover/shelf:translate-x-0">
                       <button
                         onClick={() => {
                           setEditingShelfId(shelf.id);
                           setTempShelfTitle(shelf.title);
                         }}
-                        className="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-cyan-400"
+                        className="p-2 hover:bg-cyan-500/20 rounded-lg text-slate-400 hover:text-cyan-300 transition-all"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteShelf(shelf.id)}
-                        className="p-1.5 hover:bg-red-500/10 rounded text-slate-400 hover:text-red-400"
+                        className="p-2 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-300 transition-all"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
+
+                    {/* Quick Edit Shelf Title */}
                     {editingShelfId === shelf.id && (
-                      <div className="absolute left-0 bottom-2 bg-slate-900 p-2 border border-cyan-500 rounded z-20 flex gap-2">
-                        {" "}
+                      <div className="absolute left-6 top-16 bg-slate-900 p-3 border border-cyan-500 rounded-xl shadow-2xl z-20 flex gap-2 animate-zoom-in">
                         <input
                           autoFocus
-                          className="bg-transparent border-b border-cyan-500 text-white text-sm outline-none"
+                          className="bg-transparent border-b border-cyan-500/50 text-white text-sm outline-none w-48 font-bold"
                           value={tempShelfTitle}
                           onChange={(e) => setTempShelfTitle(e.target.value)}
                           onKeyDown={(e) =>
                             e.key === "Enter" && handleSaveShelfTitle(shelf.id)
                           }
-                        />{" "}
-                        <button onClick={() => handleSaveShelfTitle(shelf.id)}>
-                          <Check size={14} className="text-green-400" />
-                        </button>{" "}
+                        />
+                        <button
+                          onClick={() => handleSaveShelfTitle(shelf.id)}
+                          className="hover:bg-green-500/20 p-1 rounded"
+                        >
+                          <Check size={16} className="text-green-400" />
+                        </button>
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-end gap-x-8 gap-y-12 pl-4">
+
+                  {/* Shelf Items */}
+                  <div className="flex flex-wrap items-end gap-x-6 gap-y-10 pl-2">
                     {shelf.items.slice(0, PREVIEW_LIMIT).map((item, index) => (
                       <div
                         key={item.id}
@@ -752,6 +1080,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                           e.stopPropagation();
                           handleDrop(e, shelf.id, index);
                         }}
+                        className="group/item relative transition-transform duration-300 hover:-translate-y-2 hover:z-10"
                       >
                         <JewelCase3D
                           item={item}
@@ -763,77 +1092,88 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                             setEditingItem({ item, shelfId: shelf.id })
                           }
                         />
+                        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-2 bg-black/50 blur-md rounded-full group-hover/item:scale-125 transition-transform duration-300"></div>
                       </div>
                     ))}
                     <AddNewAlbum onClick={() => handleAddNewItem(shelf.id)} />
                     {shelf.items.length > PREVIEW_LIMIT && (
                       <div
                         onClick={() => setFocusedShelfId(shelf.id)}
-                        className="mb-12 w-32 h-32 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer group"
+                        className="mb-8 w-28 h-28 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/50 hover:text-cyan-400 transition-all cursor-pointer group"
                       >
-                        {" "}
-                        <span className="text-xl font-bold text-slate-500 group-hover:text-white">
+                        <span className="text-2xl font-bold text-slate-600 group-hover:text-cyan-400 transition-colors">
                           +{shelf.items.length - PREVIEW_LIMIT}
-                        </span>{" "}
-                        <span className="text-[10px] text-slate-600 uppercase">
-                          Xem Thêm
-                        </span>{" "}
+                        </span>
+                        <span className="text-[9px] text-slate-600 uppercase tracking-widest mt-1">
+                          View All
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
-              <div className="flex justify-center pb-20">
-                {" "}
+              <div className="flex justify-center pb-10">
                 <button
                   onClick={handleAddShelf}
-                  className="px-6 py-3 rounded-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-white hover:bg-white/5 transition-all uppercase font-mono text-xs tracking-widest flex items-center gap-2"
+                  className="group px-8 py-4 rounded-full border border-dashed border-slate-600 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-cyan-950/20 transition-all uppercase font-mono text-xs font-bold tracking-[0.2em] flex items-center gap-3 shadow-lg hover:shadow-cyan-900/20"
                 >
-                  {" "}
-                  <Plus size={16} /> Tạo Kệ Mới{" "}
-                </button>{" "}
+                  <Plus
+                    size={18}
+                    className="group-hover:rotate-90 transition-transform duration-300"
+                  />{" "}
+                  Initialize New Shelf
+                </button>
               </div>
             </div>
           )}
 
+          {/* LIBRARY MODE (FLAT VIEW) */}
           {viewMode === "library" && !focusedShelfId && (
             <div className="py-8 animate-fade-in">
-              <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-16">
+              <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-12">
                 {allTracks.length === 0 ? (
-                  <div className="text-slate-500 italic py-20">
-                    Không tìm thấy bài hát nào.
+                  <div className="text-slate-500 italic py-20 font-mono">
+                    No data found in archive.
                   </div>
                 ) : (
                   allTracks.map(({ item, shelfId }) => (
-                    <JewelCase3D
+                    <div
                       key={item.id}
-                      item={item}
-                      isPlayingThis={activeTrack?.id === item.id && isPlaying}
-                      onClick={() => playTrackFromShelf(item, shelfId)}
-                      onEdit={() => setEditingItem({ item, shelfId })}
-                    />
+                      className="hover:-translate-y-2 transition-transform duration-300"
+                    >
+                      <JewelCase3D
+                        item={item}
+                        isPlayingThis={activeTrack?.id === item.id && isPlaying}
+                        onClick={() => playTrackFromShelf(item, shelfId)}
+                        onEdit={() => setEditingItem({ item, shelfId })}
+                      />
+                    </div>
                   ))
                 )}
               </div>
             </div>
           )}
 
+          {/* FOCUSED SHELF MODE (FULL VIEW) */}
           {focusedShelf && (
-            <div className="animate-zoom-in py-8">
-              <div className="flex items-center gap-4 mb-8">
-                {" "}
+            <div className="animate-zoom-in py-4">
+              <div className="flex items-center gap-6 mb-10 border-b border-white/5 pb-6">
                 <button
                   onClick={() => setFocusedShelfId(null)}
-                  className="p-2 rounded-full hover:bg-white/10 text-white transition-colors"
+                  className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all hover:-translate-x-1"
                 >
                   <ArrowLeft size={24} />
-                </button>{" "}
-                <h2 className="text-3xl font-bold text-white font-mono uppercase tracking-wider">
-                  {focusedShelf.title}
-                </h2>{" "}
+                </button>
+                <div>
+                  <h2 className="text-4xl font-bold text-white font-syne uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
+                    {focusedShelf.title}
+                  </h2>
+                  <p className="text-slate-500 font-mono text-xs mt-2 uppercase tracking-widest">
+                    Full Collection View
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-16">
-                {" "}
+              <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-12">
                 {focusedShelf.items.map((item, index) => (
                   <div
                     key={item.id}
@@ -846,8 +1186,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       e.stopPropagation();
                       handleDrop(e, focusedShelf.id, index);
                     }}
+                    className="hover:-translate-y-2 transition-transform duration-300"
                   >
-                    {" "}
                     <JewelCase3D
                       item={item}
                       isPlayingThis={activeTrack?.id === item.id && isPlaying}
@@ -855,96 +1195,87 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       onEdit={() =>
                         setEditingItem({ item, shelfId: focusedShelf.id })
                       }
-                    />{" "}
+                    />
                   </div>
-                ))}{" "}
+                ))}
                 <AddNewAlbum
                   onClick={() => handleAddNewItem(focusedShelf.id)}
-                />{" "}
+                />
               </div>
             </div>
           )}
         </div>
       </div>
 
+      {/* MASCOTS & MODALS LAYER */}
       {mascotPhase === "flying" && (
         <div className="fixed z-50 w-full h-full pointer-events-none">
           <FlyingBroomMascot />
         </div>
       )}
+
       {mascotPhase === "greeting" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-500">
-          <div className="relative flex flex-col items-center animate-zoom-in">
-            <RavenclawTaurusMascot
-              greeting={
-                initialMood
-                  ? getMascotMessage(initialMood)
-                  : "Chào mừng đến với không gian âm nhạc!"
-              }
-              variant="music"
-              className="scale-150 origin-bottom"
-            />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-500">
+          <div className="relative flex flex-col items-center animate-zoom-in p-10">
+            <div className="bg-slate-900/50 p-8 rounded-full border border-cyan-500/20 shadow-[0_0_100px_rgba(6,182,212,0.2)]">
+              <RavenclawTaurusMascot
+                greeting={
+                  initialMood
+                    ? getMascotMessage(initialMood)
+                    : "Welcome to QuanhZik Archive"
+                }
+                variant="music"
+                className="scale-150 origin-bottom"
+              />
+            </div>
             {initialMood && recommendedTrack ? (
               <div
-                className="mt-8 bg-slate-900 border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 shadow-[0_0_50px_rgba(251,191,36,0.2)] animate-appear-from-void max-w-sm cursor-pointer hover:bg-slate-800 transition-colors transform hover:scale-105"
+                className="mt-10 bg-slate-900/90 border border-amber-500/30 p-5 rounded-2xl flex items-center gap-5 shadow-[0_0_50px_rgba(251,191,36,0.15)] animate-appear-from-void max-w-md cursor-pointer hover:bg-slate-800 transition-all transform hover:scale-105 hover:border-amber-500/60"
                 onClick={() => {
                   setViewingItem(recommendedTrack);
                   setMascotPhase("idle");
                 }}
               >
-                {" "}
                 <img
                   src={recommendedTrack.coverUrl || ""}
-                  className="w-16 h-16 rounded-lg object-cover"
-                />{" "}
-                <div className="text-left flex-1">
-                  <div className="text-[10px] text-amber-400 uppercase font-bold">
-                    Gợi ý từ Vũ Trụ
+                  className="w-20 h-20 rounded-xl object-cover shadow-lg"
+                  alt="Recommended"
+                />
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-[10px] text-amber-400 uppercase font-bold tracking-widest mb-1">
+                    Cosmic Recommendation
                   </div>
-                  <div className="text-white font-bold truncate">
+                  <div className="text-white font-bold text-lg truncate font-syne">
                     {recommendedTrack.title}
                   </div>
-                  <div className="text-white/60 text-xs truncate">
+                  <div className="text-white/60 text-sm truncate">
                     {recommendedTrack.artist}
                   </div>
-                </div>{" "}
-                <div className="p-3 bg-amber-500 rounded-full text-white shadow-lg">
-                  <Play size={20} fill="currentColor" />
-                </div>{" "}
+                </div>
+                <div className="p-4 bg-amber-500 rounded-full text-white shadow-lg shadow-amber-500/40 animate-pulse">
+                  <Play size={24} fill="currentColor" />
+                </div>
               </div>
             ) : (
               <button
                 onClick={handleMascotClose}
-                className="mt-8 px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-full font-bold shadow-lg hover:scale-105 transition-transform"
+                className="mt-10 px-10 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-full font-bold shadow-lg shadow-cyan-500/30 hover:scale-105 transition-transform uppercase tracking-widest text-sm"
               >
-                Bắt đầu thôi!
+                Access Archive
               </button>
             )}
           </div>
         </div>
       )}
-      {mascotPhase === "returning" && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          <div className="absolute top-auto left-4 bottom-4 transition-all duration-1000 ease-in-out"></div>
-        </div>
-      )}
-      {mascotPhase === "idle" &&
-        !viewingItem?.isFavorite &&
-        !focusedShelfId && (
-          <RavenclawTaurusMascot
-            className="absolute bottom-4 left-4 z-20 animate-fade-in"
-            greeting="Tận hưởng âm nhạc đi Muggle"
-            variant="music"
-          />
-        )}
 
-      {/* THAY ĐỔI 2: Wrapper cho MiniPlayer với hiệu ứng tỏa sáng (Glow) */}
+      {/* MINI PLAYER WRAPPER */}
       <div
         className="w-full sticky bottom-0 z-40 transition-all duration-700 ease-in-out"
         style={{
-          boxShadow: activeTrack ? `0 -20px 80px ${ambientColor}60` : "none",
+          boxShadow: activeTrack ? `0 -10px 100px ${ambientColor}50` : "none",
         }}
       >
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none -z-10"></div>
         <MiniPlayer
           currentTrack={activeTrack}
           isPlaying={isPlaying}
@@ -962,6 +1293,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
         />
       </div>
 
+      {/* MODALS: LOGIC ĐƯỢC GIỮ NGUYÊN TỪ FILE AUDIOMODALS.TSX */}
       {viewingItem && (
         <DetailModal
           item={viewingItem}
@@ -974,7 +1306,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
             );
             setViewingItem(null);
           }}
-          // Thêm dòng này vào để hết lỗi:
           onAddToQueue={() => {
             setQueue((prev) => [...prev, viewingItem]);
             setViewingItem(null);
@@ -992,5 +1323,4 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     </div>
   );
 };
-
 export default AudioRoom;
