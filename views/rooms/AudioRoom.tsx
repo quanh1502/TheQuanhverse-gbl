@@ -11,11 +11,7 @@ import {
   ArrowDownCircle,
   Play,
   LogOut,
-  TrendingUp,
   Hash,
-  Sparkles,
-  Disc,
-  MoreHorizontal,
 } from "lucide-react";
 import RavenclawTaurusMascot from "../../components/RavenclawTaurusMascot";
 import { AlbumItem, AudioShelfData } from "../../contexts/DataContext";
@@ -29,7 +25,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-// --- IMPORT UTILS (GIỮ NGUYÊN) ---
+// --- IMPORT UTILS ---
 import {
   globalStyles,
   getYouTubeId,
@@ -46,6 +42,11 @@ import {
 } from "./audiosubComponents";
 import { DetailModal, EditModal } from "./audiomodals";
 
+// --- IMPORT NEW COMPONENTS ---
+import RoomBackground from "./RoomBackground";
+import AudioHero from "./AudioHero";
+import AudioNewArrivals from "./AudioNewArrivals";
+
 declare global {
   interface Window {
     onYouTubeIframeAPIReady: () => void;
@@ -59,7 +60,7 @@ interface AudioRoomProps {
 }
 
 const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
-  // --- STATE QUẢN LÝ DỮ LIỆU (LOGIC GỐC) ---
+  // --- STATE QUẢN LÝ DỮ LIỆU ---
   const [shelves, setShelves] = useState<AudioShelfData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [focusedShelfId, setFocusedShelfId] = useState<number | null>(null);
@@ -90,6 +91,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   const [recommendedTrack, setRecommendedTrack] = useState<AlbumItem | null>(
     null,
   );
+
+  // State index cho Spotlight (Random Logic)
   const [spotlightIndex, setSpotlightIndex] = useState(0);
 
   // --- MUSIC PLAYER STATE ---
@@ -309,8 +312,9 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     setActiveTrack(track);
     setViewingItem(null);
   };
+
   const playSpotlight = (track: AlbumItem) => {
-    setQueue(spotlightItems);
+    setQueue([track]);
     setActiveTrack(track);
   };
 
@@ -368,7 +372,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   };
   const handleAddNewItem = async (shelfId: number) => {
     const newItem: AlbumItem = {
-      id: Date.now(),
+      id: Date.now(), // timestamp dùng sort New Arrivals
       title: "New Track",
       artist: "Unknown",
       coverUrl: "",
@@ -422,23 +426,30 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     return score;
   };
 
-  const spotlightItems = useMemo(() => {
-    const allItems: AlbumItem[] = shelves.flatMap((s) => s.items);
-    if (allItems.length === 0) return [];
-    const scoredItems = allItems.map((item) => ({
-      ...item,
-      _score: calculateTrendingScore(item) + Math.random() * 5,
-    }));
-    return scoredItems.sort((a, b) => b._score - a._score).slice(0, 8);
+  // --- DATA PROCESSING LOGIC ---
+
+  // 1. Tạo danh sách phẳng (All Items)
+  const allFlatItems = useMemo(() => {
+    return shelves.flatMap((s) => s.items);
   }, [shelves]);
 
+  // 2. Logic New Arrivals (Top 5 mới nhất)
+  const newArrivals = useMemo(() => {
+    if (allFlatItems.length === 0) return [];
+    return [...allFlatItems].sort((a, b) => b.id - a.id).slice(0, 5);
+  }, [allFlatItems]);
+
+  // 3. Logic Spotlight Random (Mỗi 10s)
   useEffect(() => {
-    if (spotlightItems.length <= 1) return;
-    const timer = setInterval(() => {
-      setSpotlightIndex((prev) => (prev + 1) % spotlightItems.length);
-    }, 8000);
+    if (allFlatItems.length === 0) return;
+    const pickRandom = () => {
+      const randomIndex = Math.floor(Math.random() * allFlatItems.length);
+      setSpotlightIndex(randomIndex);
+    };
+    pickRandom();
+    const timer = setInterval(pickRandom, 10000);
     return () => clearInterval(timer);
-  }, [spotlightItems]);
+  }, [allFlatItems.length]);
 
   const allTracks = useMemo(() => {
     let tracks: { item: AlbumItem; shelfId: number }[] = [];
@@ -553,120 +564,13 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     ? shelves.find((s) => s.id === focusedShelfId)
     : null;
 
-  // --- NEW COMPONENT: CINEMATIC HERO (FIXED VISUALS) ---
-  const renderCinematicHero = () => {
-    if (spotlightItems.length === 0) return null;
-    const item = spotlightItems[spotlightIndex];
-
-    return (
-      <div className="relative w-full h-[60vh] min-h-[500px] mb-12 rounded-3xl overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 transition-all duration-700">
-        {/* --- LỚP 1: ẢNH NỀN (QUAN TRỌNG NHẤT) --- */}
-        {/* Fix: Tăng opacity lên 0.6 và giảm blur xuống 2xl để giữ màu sắc */}
-        <div className="absolute inset-0 z-0">
-          <img
-            src={item.coverUrl}
-            alt="Hero Background"
-            className="w-full h-full object-cover blur-2xl opacity-70 scale-110 group-hover:scale-125 transition-transform duration-[2000ms] ease-in-out"
-          />
-          {/* Lớp phủ màu 1: Gradient đen từ dưới lên để làm nổi bật nút bấm */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/40 to-transparent mix-blend-multiply" />
-
-          {/* Lớp phủ màu 2: Gradient đen từ trái sang để làm nổi bật chữ */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#020617] via-[#020617]/60 to-transparent" />
-        </div>
-
-        {/* --- LỚP 2: NỘI DUNG (Text & Ảnh gốc) --- */}
-        <div className="absolute inset-0 z-10 p-8 md:p-12 flex flex-col md:flex-row items-end md:items-center justify-between gap-8">
-          {/* Phần Text (Bên trái) */}
-          <div className="flex-1 max-w-3xl space-y-6 animate-slide-up">
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-cyan-500/20 text-cyan-300 text-[10px] font-bold uppercase tracking-widest rounded-full border border-cyan-500/30 backdrop-blur-md flex items-center gap-1 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-                <Sparkles size={10} /> Spotlight
-              </span>
-              <span className="text-white/80 text-xs font-mono uppercase tracking-widest drop-shadow-md">
-                #{spotlightIndex + 1} Trending Now
-              </span>
-            </div>
-
-            <h1 className="text-5xl md:text-7xl font-black text-white font-syne leading-[1.1] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
-              {item.title}
-            </h1>
-
-            <div className="flex items-center gap-4">
-              <p className="text-2xl text-cyan-300 font-bold tracking-wide flex items-center gap-2 drop-shadow-md">
-                <Disc size={24} className="animate-spin-slow" /> {item.artist}
-              </p>
-              <span className="text-white/50 text-xl font-thin">|</span>
-              <p className="text-white/80 text-lg font-mono">
-                {item.year || "2024"}
-              </p>
-            </div>
-
-            <p className="text-slate-300 line-clamp-2 max-w-xl text-lg leading-relaxed drop-shadow-md">
-              {item.description ||
-                "Hãy trải nghiệm không gian âm nhạc đỉnh cao cùng giai điệu này trên The Quanhverse."}
-            </p>
-
-            <div className="flex flex-wrap gap-4 pt-6">
-              <button
-                onClick={() => playSpotlight(item)}
-                className="px-10 py-4 bg-white text-black hover:bg-cyan-400 hover:text-black transition-all rounded-full font-black text-lg flex items-center gap-3 shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:shadow-[0_0_50px_rgba(34,211,238,0.6)] transform hover:-translate-y-1 active:scale-95 duration-300"
-              >
-                <Play size={28} fill="currentColor" /> PHÁT NGAY
-              </button>
-              <button
-                onClick={() => setViewingItem(item)}
-                className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/30 hover:border-white text-white rounded-full font-bold backdrop-blur-md transition-all flex items-center gap-2"
-              >
-                <MoreHorizontal size={24} /> CHI TIẾT
-              </button>
-            </div>
-          </div>
-
-          {/* Phần Ảnh Bìa Gốc (Bên phải - Tạo điểm nhấn thị giác) */}
-          <div className="hidden md:block relative w-[320px] aspect-square shrink-0 group-hover:scale-105 transition-transform duration-500">
-            {/* Glow Effect behind the square */}
-            <div className="absolute inset-0 bg-cyan-500 rounded-2xl blur-[80px] opacity-40 animate-pulse-slow"></div>
-
-            <img
-              src={item.coverUrl}
-              alt={item.title}
-              className="relative w-full h-full object-cover rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/20 rotate-3 group-hover:rotate-6 transition-all duration-500 ease-out z-10"
-            />
-
-            {/* Giant Background Number */}
-            <div className="absolute -bottom-10 -right-10 text-[180px] font-black text-white/5 font-syne z-0 leading-none select-none pointer-events-none">
-              {spotlightIndex + 1}
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Dots */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-          {spotlightItems.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSpotlightIndex(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-                idx === spotlightIndex
-                  ? "w-12 bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
-                  : "w-2 bg-white/30 hover:bg-white/60"
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
   return (
     // ROOT CONTAINER
-    <div
-      className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 transition-colors duration-1000 ease-in-out font-space"
-      style={{
-        background: `radial-gradient(circle at 50% -20%, ${ambientColor} 0%, #020617 45%, #000000 100%)`,
-      }}
-    >
+    <div className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 font-space selection:bg-cyan-500/30">
       <style>{globalStyles}</style>
+
+      {/* --- BACKGROUND MỚI (SẠCH & CÓ CHIỀU SÂU) --- */}
+      <RoomBackground />
 
       {/* Hidden Youtube Player */}
       <div
@@ -674,12 +578,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
         className="absolute pointer-events-none opacity-0"
       />
 
-      {/* Ambient Effects */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-cyan-600/10 rounded-full blur-[150px] mix-blend-screen animate-float-delayed pointer-events-none" />
-
       {/* HEADER */}
-      <div className="z-30 w-full flex flex-col bg-slate-950/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)] shrink-0 transition-all duration-300">
+      <div className="z-30 w-full flex flex-col bg-slate-950/50 backdrop-blur-xl border-b border-white/5 shadow-sm shrink-0 transition-all duration-300">
         {!focusedShelfId && (
           <div className="px-6 py-4 flex flex-col xl:flex-row items-center justify-between gap-6 animate-slide-down">
             {/* 1. LEFT: Logo Area */}
@@ -703,12 +603,10 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
               </div>
             </div>
 
-            {/* 2. RIGHT: Controls Area (Merged Library Tools + View Switcher) */}
+            {/* 2. RIGHT: Controls Area */}
             <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto justify-end">
-              {/* A. LIBRARY TOOLS (Filter & Sort) - Chỉ hiện khi ở chế độ Library */}
               {viewMode === "library" && (
                 <div className="flex flex-wrap items-center justify-center gap-3 bg-white/5 p-1.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  {/* Filter Group */}
                   <div className="flex items-center bg-black/20 rounded-lg p-1">
                     <button
                       onClick={() => setFilterType("all")}
@@ -734,7 +632,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
 
                   <div className="w-px h-4 bg-white/10"></div>
 
-                  {/* Sort Dropdown */}
                   <div className="flex items-center gap-2 px-2">
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hidden sm:block">
                       Sort:
@@ -743,7 +640,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       value={sortType}
                       onChange={(e) => setSortType(e.target.value as any)}
                       className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer hover:text-cyan-400 transition-colors uppercase border-none focus:ring-0 py-0 pl-0 pr-6"
-                      style={{ backgroundImage: "none" }} // Tùy chọn: ẩn mũi tên mặc định nếu muốn style riêng
+                      style={{ backgroundImage: "none" }}
                     >
                       <option
                         value="newest"
@@ -771,10 +668,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       </option>
                     </select>
                   </div>
-
                   <div className="w-px h-4 bg-white/10"></div>
-
-                  {/* Count Badge */}
                   <div className="px-2">
                     <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-2 py-1 rounded">
                       {allTracks.length}
@@ -783,7 +677,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                 </div>
               )}
 
-              {/* B. VIEW SWITCHER & EXIT (Luôn hiển thị) */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/5 backdrop-blur-md">
                   <button
@@ -825,6 +718,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
           </div>
         )}
       </div>
+
       {/* MAIN CONTENT BODY */}
       <div
         className={`flex-1 w-full overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent px-4 z-10 ${
@@ -833,117 +727,23 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
       >
         <div className="max-w-7xl mx-auto min-h-[500px] pt-6">
           {/* 1. CINEMATIC HERO BANNER (REPLACES SPOTLIGHT) */}
-          {!focusedShelfId && viewMode === "shelves" && renderCinematicHero()}
+          {!focusedShelfId &&
+            viewMode === "shelves" &&
+            allFlatItems.length > 0 && (
+              <AudioHero
+                item={allFlatItems[spotlightIndex % allFlatItems.length]}
+                onPlay={playSpotlight}
+                onViewDetail={setViewingItem}
+              />
+            )}
 
-          {/* 2. TOP TRENDING (RE-DESIGNED: ALTERNATING SKEW & BOTTOM INFO) */}
+          {/* 2. TOP TRENDING (RE-DESIGNED: NEW ARRIVALS) */}
           {viewMode === "shelves" &&
             !focusedShelfId &&
-            spotlightItems.length > 0 && (
-              <div className="mb-24 mt-12 animate-fade-in-up delay-100 relative z-20">
-                {/* Title Section */}
-                <div className="flex items-center gap-3 mb-16 px-4">
-                  <div className="p-2 bg-yellow-400/10 rounded-lg border border-yellow-400/20">
-                    <TrendingUp className="text-yellow-400" size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black font-syne uppercase tracking-widest text-white italic">
-                      Top 5{" "}
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-600">
-                        Trending
-                      </span>
-                    </h3>
-                    <p className="text-slate-500 text-xs font-mono tracking-widest uppercase mt-1">
-                      Most Watched This Week
-                    </p>
-                  </div>
-                </div>
-
-                {/* LIST CONTAINER */}
-                <div className="flex flex-wrap md:flex-nowrap justify-center items-start gap-6 md:gap-10 px-4 perspective-[1000px]">
-                  {spotlightItems.slice(0, 5).map((item, index) => {
-                    // LOGIC: ALTERNATING SKEW (NGHIÊNG XEN KẼ)
-                    // Thẻ chẵn (0, 2, 4): Nghiêng phải (skew-y-3)
-                    // Thẻ lẻ (1, 3): Nghiêng trái (-skew-y-3)
-                    const isEven = index % 2 === 0;
-                    const skewClass = isEven
-                      ? "skew-y-3 md:translate-y-4" // Nghiêng xuống & Dịch xuống chút để tạo nhịp
-                      : "-skew-y-3"; // Nghiêng lên
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => playSpotlight(item)}
-                        className="group flex flex-col w-full md:w-52 flex-shrink-0 cursor-pointer"
-                      >
-                        {/* --- CARD IMAGE WRAPPER (SKEWED) --- */}
-                        <div
-                          className={`
-                          relative w-full aspect-[2/3] rounded-xl overflow-hidden 
-                          border border-white/10 shadow-2xl bg-slate-900
-                          transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                          ${skewClass}
-                          group-hover:skew-y-0 group-hover:scale-110 group-hover:z-50 group-hover:shadow-[0_20px_50px_rgba(250,204,21,0.3)] group-hover:border-yellow-400/50
-                        `}
-                        >
-                          <img
-                            src={item.coverUrl}
-                            alt={item.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          />
-
-                          {/* Overlay Gradient & Play Button */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                            <div className="w-14 h-14 bg-yellow-400 text-black rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                              <Play
-                                size={28}
-                                fill="currentColor"
-                                className="ml-1"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* --- INFO SECTION (BELOW CARD) --- */}
-                        {/* Thông tin không bị nghiêng để dễ đọc */}
-                        <div className="flex items-start gap-4 mt-8 px-2 transition-all duration-300 group-hover:-translate-y-2">
-                          {/* BIG NUMBER */}
-                          <div className="flex-shrink-0">
-                            <span
-                              className="text-7xl font-black italic font-syne text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-600 leading-[0.8]"
-                              style={{
-                                WebkitTextStroke: "1px rgba(255,255,255,0.1)",
-                                filter:
-                                  "drop-shadow(0 4px 10px rgba(234, 179, 8, 0.3))",
-                              }}
-                            >
-                              {index + 1}
-                            </span>
-                          </div>
-
-                          {/* TEXT INFO */}
-                          <div className="flex flex-col pt-1 min-w-0">
-                            <h4 className="text-white font-bold text-base leading-tight line-clamp-2 group-hover:text-yellow-400 transition-colors">
-                              {item.title}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <p className="text-slate-400 text-xs font-mono truncate">
-                                {item.artist}
-                              </p>
-                              {/* Equalizer khi hover */}
-                              <div className="flex gap-0.5 items-end h-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_0.6s_ease-in-out_infinite] h-full"></span>
-                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_0.8s_ease-in-out_infinite] h-1/2"></span>
-                                <span className="w-0.5 bg-yellow-400 animate-[music-bar_1s_ease-in-out_infinite] h-3/4"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+            newArrivals.length > 0 && (
+              <AudioNewArrivals items={newArrivals} onPlay={playSpotlight} />
             )}
+
           {/* 3. QUICK ACCESS SHELVES */}
           {viewMode === "shelves" && !focusedShelfId && shelves.length > 0 && (
             <div className="mb-20 animate-fade-in-up delay-200">
@@ -967,7 +767,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       flex flex-col justify-between border border-white/10 ring-1 ring-white/5
                     `}
                   >
-                    {/* Decor */}
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full blur-2xl transform translate-x-8 -translate-y-8 group-hover:scale-150 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
 
@@ -1066,8 +865,12 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                     )}
                   </div>
 
-                  {/* Shelf Items */}
-                  <div className="flex flex-wrap items-end gap-x-6 gap-y-10 pl-2">
+                  {/* Shelf Items GRID LAYOUT */}
+                  {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS]: 
+                      - Added xl:grid-cols-5
+                      - Changed gap-6 to gap-4
+                  */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-2">
                     {shelf.items.slice(0, PREVIEW_LIMIT).map((item, index) => (
                       <div
                         key={item.id}
@@ -1080,7 +883,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                           e.stopPropagation();
                           handleDrop(e, shelf.id, index);
                         }}
-                        className="group/item relative transition-transform duration-300 hover:-translate-y-2 hover:z-10"
+                        className="group/item relative w-full aspect-video transition-transform duration-300 hover:-translate-y-2 hover:z-10"
                       >
                         <JewelCase3D
                           item={item}
@@ -1099,7 +902,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                     {shelf.items.length > PREVIEW_LIMIT && (
                       <div
                         onClick={() => setFocusedShelfId(shelf.id)}
-                        className="mb-8 w-28 h-28 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/50 hover:text-cyan-400 transition-all cursor-pointer group"
+                        className="w-full aspect-video flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/50 hover:text-cyan-400 transition-all cursor-pointer group"
                       >
                         <span className="text-2xl font-bold text-slate-600 group-hover:text-cyan-400 transition-colors">
                           +{shelf.items.length - PREVIEW_LIMIT}
@@ -1130,16 +933,17 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
           {/* LIBRARY MODE (FLAT VIEW) */}
           {viewMode === "library" && !focusedShelfId && (
             <div className="py-8 animate-fade-in">
-              <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-12">
+              {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS] */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {allTracks.length === 0 ? (
-                  <div className="text-slate-500 italic py-20 font-mono">
+                  <div className="col-span-full text-center text-slate-500 italic py-20 font-mono">
                     No data found in archive.
                   </div>
                 ) : (
                   allTracks.map(({ item, shelfId }) => (
                     <div
                       key={item.id}
-                      className="hover:-translate-y-2 transition-transform duration-300"
+                      className="w-full aspect-video hover:-translate-y-2 transition-transform duration-300"
                     >
                       <JewelCase3D
                         item={item}
@@ -1173,7 +977,8 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-12">
+              {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS] */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {focusedShelf.items.map((item, index) => (
                   <div
                     key={item.id}
@@ -1186,7 +991,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                       e.stopPropagation();
                       handleDrop(e, focusedShelf.id, index);
                     }}
-                    className="hover:-translate-y-2 transition-transform duration-300"
+                    className="w-full aspect-video hover:-translate-y-2 transition-transform duration-300"
                   >
                     <JewelCase3D
                       item={item}
@@ -1293,7 +1098,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
         />
       </div>
 
-      {/* MODALS: LOGIC ĐƯỢC GIỮ NGUYÊN TỪ FILE AUDIOMODALS.TSX */}
+      {/* MODALS */}
       {viewingItem && (
         <DetailModal
           item={viewingItem}
