@@ -92,7 +92,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     null,
   );
 
-  // State index cho Spotlight (Random Logic)
+  // State index cho Spotlight
   const [spotlightIndex, setSpotlightIndex] = useState(0);
 
   // --- MUSIC PLAYER STATE ---
@@ -372,7 +372,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
   };
   const handleAddNewItem = async (shelfId: number) => {
     const newItem: AlbumItem = {
-      id: Date.now(), // timestamp dùng sort New Arrivals
+      id: Date.now(),
       title: "New Track",
       artist: "Unknown",
       coverUrl: "",
@@ -433,23 +433,36 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     return shelves.flatMap((s) => s.items);
   }, [shelves]);
 
-  // 2. Logic New Arrivals (Top 5 mới nhất)
+  // 2. Logic New Arrivals
   const newArrivals = useMemo(() => {
     if (allFlatItems.length === 0) return [];
     return [...allFlatItems].sort((a, b) => b.id - a.id).slice(0, 5);
   }, [allFlatItems]);
 
-  // 3. Logic Spotlight Random (Mỗi 10s)
+  // 3. Logic Spotlight Random + CAROUSEL LOGIC
   useEffect(() => {
     if (allFlatItems.length === 0) return;
+    // Vẫn giữ random mỗi 10s cho sinh động
     const pickRandom = () => {
       const randomIndex = Math.floor(Math.random() * allFlatItems.length);
       setSpotlightIndex(randomIndex);
     };
-    pickRandom();
     const timer = setInterval(pickRandom, 10000);
     return () => clearInterval(timer);
   }, [allFlatItems.length]);
+
+  // [NEW] Logic Manual Navigation (Next/Prev)
+  const handleNextSpotlight = () => {
+    if (allFlatItems.length === 0) return;
+    setSpotlightIndex((prev) => (prev + 1) % allFlatItems.length);
+  };
+
+  const handlePrevSpotlight = () => {
+    if (allFlatItems.length === 0) return;
+    setSpotlightIndex(
+      (prev) => (prev - 1 + allFlatItems.length) % allFlatItems.length,
+    );
+  };
 
   const allTracks = useMemo(() => {
     let tracks: { item: AlbumItem; shelfId: number }[] = [];
@@ -478,6 +491,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     sourceShelfId: number;
     sourceIndex: number;
   } | null>(null);
+
   const handleDragStart = (
     e: React.DragEvent,
     item: AlbumItem,
@@ -550,7 +564,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     }
   };
 
-  // Gradient presets for Quick Access Shelves
   const shelfGradients = [
     "from-purple-600 to-blue-600",
     "from-emerald-500 to-teal-600",
@@ -569,7 +582,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
     <div className="relative h-full w-full flex flex-col overflow-hidden text-slate-200 font-space selection:bg-cyan-500/30">
       <style>{globalStyles}</style>
 
-      {/* --- BACKGROUND MỚI (SẠCH & CÓ CHIỀU SÂU) --- */}
+      {/* --- BACKGROUND MỚI --- */}
       <RoomBackground />
 
       {/* Hidden Youtube Player */}
@@ -726,7 +739,7 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
         }`}
       >
         <div className="max-w-7xl mx-auto min-h-[500px] pt-6">
-          {/* 1. CINEMATIC HERO BANNER (REPLACES SPOTLIGHT) */}
+          {/* 1. CINEMATIC HERO BANNER (UPDATED WITH NAVIGATION) */}
           {!focusedShelfId &&
             viewMode === "shelves" &&
             allFlatItems.length > 0 && (
@@ -734,10 +747,12 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                 item={allFlatItems[spotlightIndex % allFlatItems.length]}
                 onPlay={playSpotlight}
                 onViewDetail={setViewingItem}
+                onNext={handleNextSpotlight} // [NEW]
+                onPrev={handlePrevSpotlight} // [NEW]
               />
             )}
 
-          {/* 2. TOP TRENDING (RE-DESIGNED: NEW ARRIVALS) */}
+          {/* 2. TOP TRENDING */}
           {viewMode === "shelves" &&
             !focusedShelfId &&
             newArrivals.length > 0 && (
@@ -866,10 +881,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                   </div>
 
                   {/* Shelf Items GRID LAYOUT */}
-                  {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS]: 
-                      - Added xl:grid-cols-5
-                      - Changed gap-6 to gap-4
-                  */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-2">
                     {shelf.items.slice(0, PREVIEW_LIMIT).map((item, index) => (
                       <div
@@ -933,7 +944,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
           {/* LIBRARY MODE (FLAT VIEW) */}
           {viewMode === "library" && !focusedShelfId && (
             <div className="py-8 animate-fade-in">
-              {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS] */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {allTracks.length === 0 ? (
                   <div className="col-span-full text-center text-slate-500 italic py-20 font-mono">
@@ -977,7 +987,6 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
                   </p>
                 </div>
               </div>
-              {/* [MODIFIED - UI FIX - TIGHT GAP & 5 COLS] */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {focusedShelf.items.map((item, index) => (
                   <div
