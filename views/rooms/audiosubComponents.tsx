@@ -65,14 +65,7 @@ export const FlyingBroomMascot = () => {
         ref={mascotRef}
         className="absolute bottom-4 left-4 animate-mascot-intro"
       >
-        <div className="transform -rotate-12">
-          <RavenclawTaurusMascot
-            variant="music"
-            placement="right"
-            forceOpen={false}
-            className="scale-150"
-          />
-        </div>
+        <div className="transform -rotate-12"></div>
       </div>
     </>
   );
@@ -254,7 +247,6 @@ export const SpotlightHero = ({
 
   return (
     <div className="relative w-full mb-16 group cursor-pointer animate-appear-from-void min-h-[400px] flex items-center justify-center py-8 px-4">
-      
       {/* Navigation Buttons - Đẩy ra xa hơn để không dính vào viền to */}
       {total > 1 && (
         <>
@@ -313,20 +305,20 @@ export const SpotlightHero = ({
         >
           {/* Album Art Section */}
           <div className="relative shrink-0 group-hover:scale-105 transition-transform duration-500">
-             {/* Glow sau ảnh */}
+            {/* Glow sau ảnh */}
             <div
               className={`absolute inset-0 rounded-[2rem] ${
                 isTrendingHit ? "bg-amber-400" : "bg-cyan-400"
               } blur-[50px] opacity-40 group-hover:opacity-60 transition-opacity duration-700`}
             ></div>
-            
+
             {/* Khung ảnh */}
             <div className="relative w-60 h-60 md:w-80 md:h-80 rounded-[2rem] overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
-                <img
+              <img
                 src={item.coverUrl}
                 alt={item.title}
                 className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-110"
-                />
+              />
             </div>
 
             {/* Badges */}
@@ -343,32 +335,40 @@ export const SpotlightHero = ({
           <div className="flex-1 text-center md:text-left space-y-6">
             {/* Top Meta */}
             <div className="flex items-center justify-center md:justify-start gap-4">
-              <span className={`
+              <span
+                className={`
                 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-[0.2em] border backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.1)]
-                ${isTrendingHit 
-                    ? "bg-amber-500/20 text-amber-200 border-amber-500/50" 
+                ${
+                  isTrendingHit
+                    ? "bg-amber-500/20 text-amber-200 border-amber-500/50"
                     : "bg-cyan-500/20 text-cyan-200 border-cyan-500/50"
                 }
-              `}>
-                 {isTrendingHit ? "Editor's Choice" : "Fresh Drop"}
+              `}
+              >
+                {isTrendingHit ? "Editor's Choice" : "Fresh Drop"}
               </span>
               <div className="h-px w-10 bg-white/30"></div>
               <span className="text-sm text-white/70 font-mono font-bold">
-                 {item.year || "2025"}
+                {item.year || "2025"}
               </span>
             </div>
 
             {/* Title & Artist */}
             <div>
-                <h2 className="text-4xl md:text-6xl font-black text-white leading-[1] tracking-tighter drop-shadow-2xl mb-4">
+              <h2 className="text-4xl md:text-6xl font-black text-white leading-[1] tracking-tighter drop-shadow-2xl mb-4">
                 {item.title}
-                </h2>
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                    <p className="text-xl md:text-2xl text-slate-200 font-light tracking-wide">
-                        {item.artist}
-                    </p>
-                    {item.isFavorite && <Heart size={24} className="text-red-500 fill-current animate-pulse" />}
-                </div>
+              </h2>
+              <div className="flex items-center justify-center md:justify-start gap-3">
+                <p className="text-xl md:text-2xl text-slate-200 font-light tracking-wide">
+                  {item.artist}
+                </p>
+                {item.isFavorite && (
+                  <Heart
+                    size={24}
+                    className="text-red-500 fill-current animate-pulse"
+                  />
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -381,10 +381,10 @@ export const SpotlightHero = ({
             {/* Action Button */}
             <div className="pt-4 flex items-center justify-center md:justify-start gap-4">
               <button className="relative px-10 py-4 bg-white text-slate-950 rounded-full font-black text-sm tracking-widest uppercase overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.7)] group/btn">
-                 <span className="relative z-10 flex items-center gap-2">
-                    <Play size={18} fill="currentColor" /> Play Now
-                 </span>
-                 <div className="absolute inset-0 bg-gradient-to-r from-slate-200 to-white opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+                <span className="relative z-10 flex items-center gap-2">
+                  <Play size={18} fill="currentColor" /> Play Now
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-200 to-white opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               </button>
             </div>
           </div>
@@ -397,9 +397,9 @@ export const SpotlightHero = ({
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  idx === currentIndex % 5 
-                  ? "bg-white w-8 shadow-[0_0_10px_white]" 
-                  : "bg-white/30 w-1.5 hover:bg-white/60"
+                  idx === currentIndex % 5
+                    ? "bg-white w-8 shadow-[0_0_10px_white]"
+                    : "bg-white/30 w-1.5 hover:bg-white/60"
                 }`}
               ></div>
             ))}
@@ -566,17 +566,16 @@ export const AddNewAlbum = ({ onClick }: { onClick: () => void }) => (
 // Thêm component này vào file
 export const CrystalBall = ({ onClick }: { onClick: () => void }) => {
   return (
-    <div 
+    <div
       onClick={onClick}
       className="fixed right-6 top-24 z-40 group cursor-pointer animate-float-delayed" // Vị trí bên phải, lơ lửng
       title="Xin một quẻ tiên tri..."
     >
       {/* Lớp vỏ thủy tinh */}
       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm border border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)] group-hover:shadow-[0_0_25px_rgba(168,85,247,0.4)] transition-all duration-500 overflow-hidden relative">
-        
         {/* Làn khói bên trong (Dùng CSS tạo hiệu ứng mây trôi) */}
         <div className="absolute inset-0 bg-gradient-to-t from-purple-500/20 via-transparent to-transparent opacity-50 group-hover:opacity-80 transition-opacity"></div>
-        
+
         {/* Điểm sáng phản chiếu (Specular Highlight) */}
         <div className="absolute top-2 left-3 w-3 h-1.5 bg-white/40 rounded-full blur-[1px]"></div>
       </div>
@@ -589,50 +588,61 @@ export const MysteryOverlay = ({ item, onClose, onPlay, onRetry }: any) => {
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div 
+    <div
       onClick={onClose}
       // Hiệu ứng Fade In nhẹ nhàng cho nền tối
       className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-fade-in transition-all duration-500"
     >
-      <div 
+      <div
         onClick={handleContentClick}
         // Hiệu ứng Scale Up nhẹ + Fade In: Mượt mà, không giật, không bay
-        className="relative flex flex-col items-center animate-appear-from-void" 
+        className="relative flex flex-col items-center animate-appear-from-void"
       >
         {/* Tiêu đề nhỏ, tinh tế, font chữ mảnh */}
         <h3 className="text-sm font-mono text-purple-200/50 uppercase tracking-[0.4em] mb-8">
-           The Prophecy
+          The Prophecy
         </h3>
 
         {/* Đĩa nhạc: Chỉ hiện ra, không hiệu ứng xoay quá đà */}
-        <div className="relative group cursor-pointer transition-transform duration-700 hover:scale-105" onClick={onPlay}>
-            {/* Hào quang mờ ảo phía sau (Glow nhẹ) */}
-            <div className="absolute inset-0 bg-purple-500/20 blur-[60px] rounded-full"></div>
-            
-            {/* Tái sử dụng JewelCase nhưng size lớn */}
-            <div className="scale-125 md:scale-150">
-                <JewelCase3D item={item} onClick={onPlay} onEdit={() => {}} />
-            </div>
+        <div
+          className="relative group cursor-pointer transition-transform duration-700 hover:scale-105"
+          onClick={onPlay}
+        >
+          {/* Hào quang mờ ảo phía sau (Glow nhẹ) */}
+          <div className="absolute inset-0 bg-purple-500/20 blur-[60px] rounded-full"></div>
+
+          {/* Tái sử dụng JewelCase nhưng size lớn */}
+          <div className="scale-125 md:scale-150">
+            <JewelCase3D item={item} onClick={onPlay} onEdit={() => {}} />
+          </div>
         </div>
 
         {/* Các nút bấm tối giản */}
-        <div className="flex items-center gap-6 mt-12 opacity-0 animate-slide-in" style={{ animationDelay: '0.3s' }}>
-           <button 
-             onClick={(e) => { e.stopPropagation(); onRetry(); }} 
-             className="px-4 py-2 text-xs text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-           >
-             Gieo quẻ khác
-           </button>
-           
-           <button 
-             onClick={(e) => { e.stopPropagation(); onPlay(); }} 
-             className="px-8 py-3 bg-white text-black rounded-full font-bold hover:bg-purple-100 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-           >
-             Nghe Ngay
-           </button>
+        <div
+          className="flex items-center gap-6 mt-12 opacity-0 animate-slide-in"
+          style={{ animationDelay: "0.3s" }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetry();
+            }}
+            className="px-4 py-2 text-xs text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
+          >
+            Gieo quẻ khác
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
+            className="px-8 py-3 bg-white text-black rounded-full font-bold hover:bg-purple-100 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+          >
+            Nghe Ngay
+          </button>
         </div>
       </div>
     </div>
   );
 };
-

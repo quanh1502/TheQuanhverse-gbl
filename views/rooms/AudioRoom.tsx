@@ -16,6 +16,8 @@ import {
 import RavenclawTaurusMascot from "../../components/RavenclawTaurusMascot";
 import { AlbumItem, AudioShelfData } from "../../contexts/DataContext";
 import { db } from "../../services/firebase";
+import CategoryCard, { CardVariant } from "../../components/CategoryCard";
+
 import {
   collection,
   onSnapshot,
@@ -759,53 +761,41 @@ const AudioRoom: React.FC<AudioRoomProps> = ({ initialMood, onExit }) => {
               <AudioNewArrivals items={newArrivals} onPlay={playSpotlight} />
             )}
 
-          {/* 3. QUICK ACCESS SHELVES */}
+          {/* 3. QUICK ACCESS SHELVES (UPDATED) */}
           {viewMode === "shelves" && !focusedShelfId && shelves.length > 0 && (
             <div className="mb-20 animate-fade-in-up delay-200">
               <div className="flex items-center gap-3 mb-6 px-2">
                 <Hash className="text-cyan-400" size={20} />
                 <h3 className="text-lg font-bold font-syne uppercase tracking-widest text-slate-300">
-                  Quick Access / Categories
+                  Khám Phá Chủ Đề
                 </h3>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {shelves.map((shelf, index) => (
-                  <div
-                    key={`shortcut-${shelf.id}`}
-                    onClick={() => scrollToShelf(shelf.id)}
-                    className={`
-                      relative group cursor-pointer overflow-hidden rounded-2xl p-4 h-28
-                      bg-gradient-to-br ${
-                        shelfGradients[index % shelfGradients.length]
-                      }
-                      shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300
-                      flex flex-col justify-between border border-white/10 ring-1 ring-white/5
-                    `}
-                  >
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full blur-2xl transform translate-x-8 -translate-y-8 group-hover:scale-150 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
 
-                    <div className="relative z-10">
-                      <h4 className="font-bold text-white text-base leading-tight drop-shadow-md line-clamp-2 group-hover:tracking-wide transition-all">
-                        {shelf.title}
-                      </h4>
-                    </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {shelves.map((shelf, index) => {
+                  // Logic xoay vòng màu sắc dựa trên index
+                  // 0: dreamy, 1: vintage, 2: modern, 3: ocean...
+                  const variants: CardVariant[] = [
+                    "dreamy",
+                    "vintage",
+                    "modern",
+                    "ocean",
+                  ];
+                  const assignedVariant = variants[index % variants.length];
 
-                    <div className="relative z-10 flex items-end justify-between mt-2">
-                      <span className="text-[10px] font-mono bg-black/20 px-2 py-0.5 rounded-md text-white/90 backdrop-blur-sm border border-white/10">
-                        {shelf.items.length} TRACKS
-                      </span>
-                      <ArrowDownCircle
-                        size={20}
-                        className="text-white/70 group-hover:text-white transition-colors transform group-hover:translate-y-1"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  return (
+                    <CategoryCard
+                      key={shelf.id}
+                      title={shelf.title}
+                      count={shelf.items.length}
+                      variant={assignedVariant}
+                      onClick={() => scrollToShelf(shelf.id)}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
-
           {/* SHELF VIEW (GRID DISPLAY) */}
           {viewMode === "shelves" && !focusedShelfId && (
             <div className="flex flex-col gap-16 pb-20">
